@@ -1,0 +1,9 @@
+*.class
+*.log
+/.idea
+/.gradle
+.DS_Store
+/build
+/out
+/classes
+/nbplugin.iml

@@ -1,6 +1,5 @@
-# JDP Java Date Picker
-JDP is a Java datepicker control using Swing.
+# NetBeans plugin preparation
+A little demo to show how to make use of the disco client to access the foojay disco api from Swing
 
 ## Screenshot
-![Overview](https://raw.githubusercontent.com/HanSolo/jdp/master/jdp.png)
-# NetBeans plugin prep
+![Overview](https://raw.githubusercontent.com/foojay2020/nbplugin/master/screenshot.png)
