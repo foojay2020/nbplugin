@@ -1,4 +1,4 @@
-# NetBeans plugin preparation
+# NetBeans Plugin Preparation
 A little demo to show how to make use of the disco client to access the foojay disco api from Swing
 
 ## Screenshot
