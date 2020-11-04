@@ -49,6 +49,7 @@ public class Main {
     private JComboBox<Integer>      versionComboBox;
     private JComboBox<Distribution> distributionComboBox;
     private JComboBox<BundleType>   bundleTypeComboBox;
+    private JComboBox<Extension>    extensionComboBox;
     private JCheckBox               latestCheckBox;
     private BundleTableModel        tableModel;
     private JTable                  table;
@@ -118,6 +119,19 @@ public class Main {
         bundleTypeVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 
 
+        // Extension
+        JLabel extensionLabel = new JLabel("Extension");
+        extensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        Extension[] extensions = Arrays.stream(Extension.values()).filter(extension -> Extension.NONE != extension).filter(extension -> Extension.NOT_FOUND != extension).toArray(Extension[]::new);
+        extensionComboBox = new JComboBox(extensions);
+        extensionComboBox.addActionListener(e -> updateData());
+
+        Box extensionVBox = Box.createVerticalBox();
+        extensionVBox.add(extensionLabel);
+        extensionVBox.add(extensionComboBox);
+        extensionVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+
+
         // Latest
         JLabel latestLabel = new JLabel("Latest");
         latestLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -136,6 +150,7 @@ public class Main {
         hBox.add(versionsVBox);
         hBox.add(bundleTypeVBox);
         hBox.add(latestVBox);
+        hBox.add(extensionVBox);
 
         Box vBox = Box.createVerticalBox();
         vBox.add(hBox);
@@ -192,7 +207,7 @@ public class Main {
         OperatingSystem operatingSystem = getOperatingSystem();
         Architecture    architecture    = Architecture.NONE;
         Bitness         bitness         = Bitness.NONE;
-        Extension       extension       = Extension.NONE;
+        Extension       extension       = (Extension) extensionComboBox.getSelectedItem();
         BundleType      bundleType      = (BundleType) bundleTypeComboBox.getSelectedItem();
         Boolean         fx              = false;
         ReleaseStatus   releaseStatus   = ReleaseStatus.NONE;
