@@ -37,9 +37,11 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 
 public class Main {
@@ -196,9 +198,15 @@ public class Main {
         ReleaseStatus   releaseStatus   = ReleaseStatus.NONE;
         SupportTerm     supportTerm     = SupportTerm.NONE;
         List<Bundle>    bundles         = discoClient.getBundles(distribution, new VersionNumber(featureVersion), latest, operatingSystem, architecture, bitness, extension, bundleType, fx, releaseStatus,  supportTerm);
+        List<Bundle>    sortedBundles   = bundles.stream()
+                                                 .sorted(Comparator.comparing(Bundle::getDistributionName)
+                                                                   .thenComparing(Bundle::getVersionNumber).reversed()
+                                                                   .thenComparing(Bundle::getOperatingSystem)
+                                                                   .thenComparing(Bundle::getArchitecture))
+                                                 .collect(Collectors.toList());
         SwingUtilities.invokeLater(() -> {
             BundleTableModel tableModel = (BundleTableModel) table.getModel();
-            tableModel.setBundles(bundles);
+            tableModel.setBundles(sortedBundles);
             tableModel.fireTableDataChanged();
         });
     }
