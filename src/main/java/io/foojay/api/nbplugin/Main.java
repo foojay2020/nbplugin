@@ -24,6 +24,7 @@ import io.foojay.api.discoclient.bundle.Bundle;
 import io.foojay.api.discoclient.bundle.BundleType;
 import io.foojay.api.discoclient.bundle.Distribution;
 import io.foojay.api.discoclient.bundle.Extension;
+import io.foojay.api.discoclient.bundle.Latest;
 import io.foojay.api.discoclient.bundle.OperatingSystem;
 import io.foojay.api.discoclient.bundle.Release;
 import io.foojay.api.discoclient.bundle.ReleaseStatus;
@@ -50,7 +51,6 @@ public class Main {
     private JComboBox<Distribution> distributionComboBox;
     private JComboBox<BundleType>   bundleTypeComboBox;
     private JComboBox<Extension>    extensionComboBox;
-    private JCheckBox               latestCheckBox;
     private BundleTableModel        tableModel;
     private JTable                  table;
     private JProgressBar            progressBar;
@@ -120,9 +120,11 @@ public class Main {
 
 
         // Extension
+        List<Extension> availableExtensions = new ArrayList<>(discoClient.getExtensions(discoClient.getOperatingSystem()));
+        availableExtensions.add(0, Extension.NONE);
         JLabel extensionLabel = new JLabel("Extension");
         extensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        Extension[] extensions = Arrays.stream(Extension.values()).filter(extension -> Extension.NONE != extension).filter(extension -> Extension.NOT_FOUND != extension).toArray(Extension[]::new);
+        Extension[] extensions = availableExtensions.toArray(Extension[]::new);
         extensionComboBox = new JComboBox(extensions);
         extensionComboBox.addActionListener(e -> updateData());
 
@@ -132,24 +134,11 @@ public class Main {
         extensionVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 
 
-        // Latest
-        JLabel latestLabel = new JLabel("Latest");
-        latestLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        latestCheckBox = new JCheckBox();
-        latestCheckBox.addActionListener(e -> updateData());
-
-        Box latestVBox = Box.createVerticalBox();
-        latestVBox.add(latestLabel);
-        latestVBox.add(latestCheckBox);
-        latestVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
-
-
         // Header Box
         Box hBox = Box.createHorizontalBox();
         hBox.add(distributionVBox);
         hBox.add(versionsVBox);
         hBox.add(bundleTypeVBox);
-        hBox.add(latestVBox);
         hBox.add(extensionVBox);
 
         Box vBox = Box.createVerticalBox();
@@ -203,8 +192,7 @@ public class Main {
     private void updateData() {
         Distribution    distribution    = (Distribution) distributionComboBox.getSelectedItem();
         Integer         featureVersion  = (Integer) versionComboBox.getSelectedItem();
-        boolean         latest          = latestCheckBox.isSelected();
-        OperatingSystem operatingSystem = getOperatingSystem();
+        OperatingSystem operatingSystem = discoClient.getOperatingSystem();
         Architecture    architecture    = Architecture.NONE;
         Bitness         bitness         = Bitness.NONE;
         Extension       extension       = (Extension) extensionComboBox.getSelectedItem();
@@ -212,7 +200,7 @@ public class Main {
         Boolean         fx              = false;
         ReleaseStatus   releaseStatus   = ReleaseStatus.NONE;
         SupportTerm     supportTerm     = SupportTerm.NONE;
-        List<Bundle>    bundles         = discoClient.getBundles(distribution, new VersionNumber(featureVersion), latest, operatingSystem, architecture, bitness, extension, bundleType, fx, releaseStatus,  supportTerm);
+        List<Bundle>    bundles         = discoClient.getBundles(distribution, new VersionNumber(featureVersion), Latest.OVERALL, operatingSystem, architecture, bitness, extension, bundleType, fx, releaseStatus,  supportTerm);
         List<Bundle>    sortedBundles   = bundles.stream()
                                                  .sorted(Comparator.comparing(Bundle::getDistributionName)
                                                                    .thenComparing(Bundle::getVersionNumber).reversed()
@@ -269,21 +257,6 @@ public class Main {
             assert null == future.get();
         } catch (InterruptedException | ExecutionException e) {
 
-        }
-    }
-
-    private OperatingSystem getOperatingSystem() {
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.indexOf("win") >= 0) {
-            return OperatingSystem.WINDOWS;
-        } else if (os.indexOf("mac") >= 0) {
-            return OperatingSystem.MACOS;
-        } else if (os.indexOf("nix") >= 0 || os.indexOf("nux") >= 0) {
-            return OperatingSystem.LINUX;
-        } else if (os.indexOf("sunos") >= 0) {
-            return OperatingSystem.SOLARIS;
-        } else {
-            return OperatingSystem.NONE;
         }
     }
 
