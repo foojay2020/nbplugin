@@ -132,7 +132,6 @@ public class JdkSelector extends JPanel {
         downloadArea = new RJPanel();
         downloadArea.setMaximumSize(new Dimension(350, 120));
         downloadArea.setPreferredSize(new Dimension(350, 120));
-        downloadArea.setBorder(new EmptyBorder(10, 10, 10, 10));
         downloadArea.setEnabled(false);
         downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
         downloadArea.add(downloadVBox);
@@ -153,6 +152,7 @@ public class JdkSelector extends JPanel {
         vBox.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         add(vBox);
+        setBorder(new EmptyBorder(10, 10, 10 ,10));
 
         registerListeners();
     }
