@@ -36,6 +36,7 @@ import javax.swing.plaf.basic.BasicProgressBarUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.font.TextAttribute;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.Rectangle2D.Double;
 import java.io.File;
@@ -103,8 +104,12 @@ public class JdkSelector extends JPanel {
         }
 
         distributionLabel = new JLabel("Distribution");
+        Font distributionLabelFont = distributionLabel.getFont();
+        distributionLabelFont = new Font(distributionLabelFont.getName(), Font.PLAIN, 9);
+        Map attr = distributionLabelFont.getAttributes();
+        attr.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
         distributionLabel.setForeground(new Color(128, 128, 128));
-        distributionLabel.setFont(new Font(distributionLabel.getFont().getName(), Font.PLAIN, 9));
+        distributionLabel.setFont(distributionLabelFont.deriveFont(attr));
 
         downloadLabel =  new JLabel("Download");
         downloadLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -157,6 +162,7 @@ public class JdkSelector extends JPanel {
         registerListeners();
     }
 
+
     private void registerListeners() {
         discoClient.setOnDCEvent(e -> {
             switch(e.getType()) {
@@ -185,6 +191,16 @@ public class JdkSelector extends JPanel {
                 distribution = showDistributionDialog(getParent());
                 jdkSelectors.entrySet().stream().filter(entry -> entry.getValue().isSelected()).forEach(entry -> update(entry.getKey()));
             }
+            @Override public void mouseEntered(final MouseEvent e) {
+                if (downloadArea.isEnabled()) {
+                    SwingUtilities.invokeLater(() -> distributionLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)));
+                }
+            }
+            @Override public void mouseExited(final MouseEvent e) {
+                if (downloadArea.isEnabled()) {
+                    SwingUtilities.invokeLater(() -> distributionLabel.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)));
+                }
+            }
         });
 
         downloadArea.addMouseListener(new MouseAdapter() {
@@ -197,12 +213,18 @@ public class JdkSelector extends JPanel {
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
-                    SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
+                    SwingUtilities.invokeLater(() -> {
+                        downloadArea.setBackground(DOWNLOAD_AREA_HOVER);
+                        downloadArea.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    });
                 }
             }
             @Override public void mouseExited(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
-                    SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_STD));
+                    SwingUtilities.invokeLater(() -> {
+                        downloadArea.setBackground(DOWNLOAD_AREA_STD);
+                        downloadArea.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                    });
                 }
             }
         });
