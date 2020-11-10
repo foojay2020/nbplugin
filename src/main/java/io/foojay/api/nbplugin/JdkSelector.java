@@ -191,10 +191,11 @@ public class JdkSelector extends JPanel {
                 if (progressBar.isVisible()) { return; }
                 distribution = showDistributionDialog(getParent());
                 buttonGroup.clearSelection();
+                selectedBundle         = null;
+                selectedBundleFileInfo = null;
+                versionNumberLabel.setText("-");
+                fileNameLabel.setText("-");
                 jdkSelectors.entrySet().forEach(entry -> entry.getValue().setEnabled(true));
-                jdkSelectors.entrySet()
-                            .stream()
-                            .forEach(entry -> update(entry.getKey()));
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
