@@ -54,6 +54,7 @@ public class JdkSelector extends JPanel {
     private DiscoClient                discoClient;
     private Distribution               distribution;
     private JLabel                     osLabel;
+    private ButtonGroup                buttonGroup;
     private Map<Integer, JRadioButton> jdkSelectors;
     private JLabel                     distributionLabel;
     private RJPanel                    downloadArea;
@@ -91,11 +92,11 @@ public class JdkSelector extends JPanel {
 
         osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
 
-        Release  jdk8          = discoClient.getRelease("8");
+        Release jdk8           = discoClient.getRelease("8");
         Release lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
         Release currentRelease = discoClient.getRelease(Release.LATEST_RELEASE);
 
-        ButtonGroup buttonGroup = new ButtonGroup();
+        buttonGroup  = new ButtonGroup();
         jdkSelectors = new ConcurrentHashMap<>();
         jdkSelectors.put(8, createRadioButton(jdk8, buttonGroup));
         jdkSelectors.put(Integer.valueOf(lastLtsRelease.getVersionNumber()), createRadioButton(lastLtsRelease, buttonGroup));
@@ -189,7 +190,11 @@ public class JdkSelector extends JPanel {
             @Override public void mousePressed(final MouseEvent e) {
                 if (progressBar.isVisible()) { return; }
                 distribution = showDistributionDialog(getParent());
-                jdkSelectors.entrySet().stream().filter(entry -> entry.getValue().isSelected()).forEach(entry -> update(entry.getKey()));
+                buttonGroup.clearSelection();
+                jdkSelectors.entrySet().forEach(entry -> entry.getValue().setEnabled(true));
+                jdkSelectors.entrySet()
+                            .stream()
+                            .forEach(entry -> update(entry.getKey()));
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
@@ -253,11 +258,21 @@ public class JdkSelector extends JPanel {
                                          ReleaseStatus.NONE,
                                          SupportTerm.NONE);
 
-        selectedBundle         = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
-        selectedBundleFileInfo = discoClient.getBundleFileInfo(selectedBundle.getId());
+        if (bundles.isEmpty()) {
+            jdkSelectors.get(featureVersion).setSelected(false);
+            jdkSelectors.get(featureVersion).setEnabled(false);
+            selectedBundle         = null;
+            selectedBundleFileInfo = null;
 
-        versionNumberLabel.setText(selectedBundle.getVersionNumber().toString());
-        fileNameLabel.setText(selectedBundle.getFileName());
+            versionNumberLabel.setText("-");
+            fileNameLabel.setText("-");
+        } else {
+            selectedBundle         = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
+            selectedBundleFileInfo = discoClient.getBundleFileInfo(selectedBundle.getId());
+
+            versionNumberLabel.setText(selectedBundle.getVersionNumber().toString());
+            fileNameLabel.setText(selectedBundle.getFileName());
+        }
     }
 
     private void downloadBundle(final Container parent) {
