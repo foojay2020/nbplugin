@@ -50,6 +50,7 @@ public class JdkSelector extends JPanel {
     private static final Color         DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
     private static final Color         DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
     private static final Color         DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
+    private static final Color         DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
     private static final Color         PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
     private DiscoClient                discoClient;
     private Distribution               distribution;
@@ -114,16 +115,16 @@ public class JdkSelector extends JPanel {
 
         downloadLabel =  new JLabel("Download");
         downloadLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        downloadLabel.setForeground(Color.WHITE);
+        downloadLabel.setForeground(DISABLED_LABEL_COLOR);
         downloadLabel.setFont(new Font(downloadLabel.getFont().getName(), Font.BOLD, 16));
 
         versionNumberLabel = new JLabel("-");
         versionNumberLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        versionNumberLabel.setForeground(Color.WHITE);
+        versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
 
         fileNameLabel = new JLabel("-");
         fileNameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        fileNameLabel.setForeground(Color.WHITE);
+        fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
 
         Box downloadVBox = Box.createVerticalBox();
         downloadVBox.add(downloadLabel);
@@ -135,7 +136,7 @@ public class JdkSelector extends JPanel {
         downloadVBox.add(progressBar);
         downloadVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 
-        downloadArea = new RJPanel();
+        downloadArea = new RJPanel(20, 20);
         downloadArea.setMaximumSize(new Dimension(350, 120));
         downloadArea.setPreferredSize(new Dimension(350, 120));
         downloadArea.setEnabled(false);
@@ -193,8 +194,11 @@ public class JdkSelector extends JPanel {
                 buttonGroup.clearSelection();
                 selectedBundle         = null;
                 selectedBundleFileInfo = null;
+                downloadLabel.setForeground(DISABLED_LABEL_COLOR);
                 versionNumberLabel.setText("-");
+                versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
                 fileNameLabel.setText("-");
+                fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
                 downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
                 downloadArea.setEnabled(false);
                 jdkSelectors.entrySet().forEach(entry -> entry.getValue().setEnabled(true));
@@ -266,6 +270,9 @@ public class JdkSelector extends JPanel {
         if (bundles.isEmpty()) {
             downloadArea.setEnabled(false);
             downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
+            downloadLabel.setForeground(DISABLED_LABEL_COLOR);
+            versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
+            fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
 
             jdkSelectors.get(featureVersion).setSelected(false);
             jdkSelectors.get(featureVersion).setEnabled(false);
@@ -278,6 +285,9 @@ public class JdkSelector extends JPanel {
         } else {
             downloadArea.setEnabled(true);
             downloadArea.setBackground(DOWNLOAD_AREA_STD);
+            downloadLabel.setForeground(Color.WHITE);
+            versionNumberLabel.setForeground(Color.WHITE);
+            fileNameLabel.setForeground(Color.WHITE);
 
             selectedBundle         = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
             selectedBundleFileInfo = discoClient.getBundleFileInfo(selectedBundle.getId());
@@ -314,10 +324,30 @@ public class JdkSelector extends JPanel {
 
     // ******************** Inner classes *************************************
     class RJPanel extends JPanel {
+        private int arcWidth;
+        private int archHeight;
 
         public RJPanel() {
+            this(0, 0);
+        }
+        public RJPanel(final int arcWidth, final int archHeight) {
             super();
-            setBorder(new EmptyBorder(0, 0, 0, 0));
+            this.arcWidth   = arcWidth;
+            this.archHeight = archHeight;
+            setBorder(new EmptyBorder(0,0,0,0));
+        }
+
+
+        public int getArcWidth() { return arcWidth; }
+        public void setArcWidth(final int archWidth) {
+            this.arcWidth = archWidth;
+            repaint();
+        }
+
+        public int getArchHeight() { return archHeight; }
+        public void setArchHeight(final int archHeight) {
+            this.archHeight = archHeight;
+            repaint();
         }
 
         @Override public boolean isOpaque() { return false; }
@@ -332,7 +362,7 @@ public class JdkSelector extends JPanel {
             int w = getWidth() - insets.left - insets.right;
             int h = getHeight() - insets.top - insets.bottom;
             g2.setColor(getBackground());
-            g2.fillRoundRect(x, y, w, h, 10, 10);
+            g2.fillRoundRect(x, y, w, h, arcWidth, archHeight);
         }
     }
 
