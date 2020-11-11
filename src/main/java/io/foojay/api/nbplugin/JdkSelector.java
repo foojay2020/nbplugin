@@ -195,6 +195,8 @@ public class JdkSelector extends JPanel {
                 selectedBundleFileInfo = null;
                 versionNumberLabel.setText("-");
                 fileNameLabel.setText("-");
+                downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
+                downloadArea.setEnabled(false);
                 jdkSelectors.entrySet().forEach(entry -> entry.getValue().setEnabled(true));
             }
             @Override public void mouseEntered(final MouseEvent e) {
@@ -211,11 +213,15 @@ public class JdkSelector extends JPanel {
 
         downloadArea.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(final MouseEvent e) {
-                SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
-                downloadBundle(getParent());
+                if (downloadArea.isEnabled()) {
+                    SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
+                    downloadBundle(getParent());
+                }
             }
             @Override public void mouseReleased(final MouseEvent e) {
-                SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_STD));
+                if (downloadArea.isEnabled()) {
+                    SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_STD));
+                }
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
@@ -245,8 +251,6 @@ public class JdkSelector extends JPanel {
     }
 
     private void update(final int featureVersion) {
-        downloadArea.setEnabled(true);
-        downloadArea.setBackground(DOWNLOAD_AREA_STD);
         bundles = discoClient.getBundles(distribution,
                                          new VersionNumber(featureVersion),
                                          Latest.OVERALL,
@@ -260,14 +264,21 @@ public class JdkSelector extends JPanel {
                                          SupportTerm.NONE);
 
         if (bundles.isEmpty()) {
+            downloadArea.setEnabled(false);
+            downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
+
             jdkSelectors.get(featureVersion).setSelected(false);
             jdkSelectors.get(featureVersion).setEnabled(false);
+
             selectedBundle         = null;
             selectedBundleFileInfo = null;
 
             versionNumberLabel.setText("-");
             fileNameLabel.setText("-");
         } else {
+            downloadArea.setEnabled(true);
+            downloadArea.setBackground(DOWNLOAD_AREA_STD);
+
             selectedBundle         = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
             selectedBundleFileInfo = discoClient.getBundleFileInfo(selectedBundle.getId());
 
