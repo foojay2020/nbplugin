@@ -48,7 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class JdkSelector extends JPanel {
     private static final Color         DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
-    private static final Color         DOWNLOAD_AREA_HOVER    = new Color(36, 134, 220);
+    private static final Color         DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
     private static final Color         DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
     private static final Color         PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
     private DiscoClient                discoClient;
