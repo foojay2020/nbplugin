@@ -47,8 +47,8 @@ import java.util.stream.Collectors;
 
 
 public class Main {
-    private static final int        PREFERRED_WIDTH  = 300;
-    private static final int        PREFERRED_HEIGHT = 120;
+    private static final int        PREFERRED_WIDTH  = 600;
+    private static final int        PREFERRED_HEIGHT = 300;
     private DiscoClient             discoClient;
     private JComboBox<Integer>      versionComboBox;
     private JComboBox<Distribution> distributionComboBox;
@@ -99,9 +99,10 @@ public class Main {
         // Distributions
         JLabel distributionLabel = new JLabel("Distributions");
         distributionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        Distribution[] distributions = { Distribution.NONE, Distribution.ADOPT, Distribution.CORRETTO, Distribution.DRAGONWELL, Distribution.LIBERICA, Distribution.OPEN_JDK, Distribution.SAP_MACHINE, Distribution.ZULU };
+        Distribution[] distributions = { Distribution.ADOPT, Distribution.CORRETTO, Distribution.DRAGONWELL, Distribution.LIBERICA, Distribution.OPEN_JDK, Distribution.SAP_MACHINE, Distribution.ZULU };
         distributionComboBox = new JComboBox<>(distributions);
         distributionComboBox.setRenderer(new DistributionListCellRenderer());
+        distributionComboBox.setSelectedItem(Distribution.ZULU);
         distributionComboBox.addActionListener(e -> updateData());
 
         Box distributionVBox = Box.createVerticalBox();
@@ -141,8 +142,8 @@ public class Main {
 
         // Header Box
         Box hBox = Box.createHorizontalBox();
-        hBox.add(distributionVBox);
         hBox.add(versionsVBox);
+        hBox.add(distributionVBox);
         hBox.add(bundleTypeVBox);
         hBox.add(extensionVBox);
 
@@ -155,8 +156,22 @@ public class Main {
 
 
         // Table
+        Font tableFont = versionLabel.getFont();
+        tableFont = new Font(tableFont.getName(), Font.PLAIN, 13);
         tableModel = new BundleTableModel(List.of());
         table      = new JTable(tableModel);
+        table.setFont(tableFont);
+        table.setOpaque(true);
+        table.setFillsViewportHeight(true);
+        table.setBackground(new Color(45, 45, 45));
+        table.setForeground(new Color(164, 164, 164));
+        table.getTableHeader().setBackground(new Color(45, 45, 45));
+        table.getTableHeader().setForeground(new Color(164, 164, 164));
+        table.getTableHeader().setFont(tableFont);
+        table.setSelectionBackground(new Color(4, 124, 192));
+        table.setSelectionForeground(Color.WHITE);
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, 1));
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoCreateRowSorter(true);
         ListSelectionModel selectionModel = table.getSelectionModel();
@@ -165,7 +180,7 @@ public class Main {
             filenameLabel.setText(tableModel.getFilename(table.getSelectedRow()));
         });
         JScrollPane tableScrollPane = new JScrollPane(table);
-        tableScrollPane.setPreferredSize(new Dimension(400, 300));
+        tableScrollPane.setPreferredSize(new Dimension(PREFERRED_WIDTH, PREFERRED_HEIGHT));
 
 
         // Footer Box
@@ -202,6 +217,8 @@ public class Main {
         // Show frame
         frame.pack();
         frame.setVisible(true);
+
+        updateData();
     }
 
     private void updateData() {
