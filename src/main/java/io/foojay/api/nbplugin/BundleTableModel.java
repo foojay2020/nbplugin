@@ -16,8 +16,6 @@
 
 package io.foojay.api.nbplugin;
 
-import io.foojay.api.discoclient.bundle.Architecture;
-import io.foojay.api.discoclient.bundle.Bitness;
 import io.foojay.api.discoclient.bundle.Bundle;
 import io.foojay.api.discoclient.bundle.BundleType;
 import io.foojay.api.discoclient.bundle.Distribution;
@@ -31,7 +29,7 @@ import java.util.List;
 
 
 public class BundleTableModel extends AbstractTableModel {
-    private String[]     columnNames = { "Version", "Distribution", "Vendor", "Bundle Type", "Support Term", "Release Status", "Extension", "Filename" };
+    private String[]     columnNames = { "Version", "Distribution", "Vendor", "Bundle Type", "Release Status", "Extension" };
     private List<Bundle> bundles;
 
 
@@ -52,10 +50,7 @@ public class BundleTableModel extends AbstractTableModel {
             case 2 :
             case 3 :
             case 4 :
-            case 5 :
-            case 6 :
-            case 7 :
-            case 8 : return columnNames[col];
+            case 5 : return columnNames[col];
             default: return null;
         }
     }
@@ -66,12 +61,55 @@ public class BundleTableModel extends AbstractTableModel {
             case 1 : return Distribution.class;
             case 2 : return String.class;
             case 3 : return BundleType.class;
-            case 4 : return SupportTerm.class;
-            case 5 : return ReleaseStatus.class;
-            case 6 : return Extension.class;
-            case 7 : return String.class;
+            case 4 : return ReleaseStatus.class;
+            case 5 : return Extension.class;
             default: return null;
         }
+    }
+
+    public Bundle getBundle(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row);
+    }
+
+    public VersionNumber getVersionNumber(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getVersionNumber();
+    }
+
+    public Distribution getDistribution(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getDistribution();
+    }
+
+    public String getVendor(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getDistribution().getVendor();
+    }
+
+    public BundleType getBundleType(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getBundleType();
+    }
+
+    public SupportTerm getSupportTerm(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getSupportTerm();
+    }
+
+    public ReleaseStatus getReleaseStatus(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getReleaseStatus();
+    }
+
+    public Extension getExtension(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getExtension();
+    }
+
+    public String getFilename(final int row) {
+        if (row < 0 || row > getRowCount()) { return null; }
+        return bundles.get(row).getFileName();
     }
 
     @Override public int getRowCount() {
@@ -84,16 +122,15 @@ public class BundleTableModel extends AbstractTableModel {
     }
 
     @Override public Object getValueAt(final int row, final int col) {
+        if (row < 0 || row > bundles.size()) { return null; }
         final Bundle bundle = bundles.get(row);
         switch(col) {
             case 0 : return bundle.getVersionNumber();
             case 1 : return bundle.getDistribution().getUiString();
             case 2 : return bundle.getDistribution().getVendor();
             case 3 : return bundle.getBundleType().getUiString();
-            case 4 : return bundle.getSupportTerm().name();
-            case 5 : return bundle.getReleaseStatus().name();
-            case 6 : return bundle.getExtension().getUiString();
-            case 7 : return bundle.getFileName();
+            case 4 : return bundle.getReleaseStatus().name();
+            case 5 : return bundle.getExtension().getUiString();
             default: return null;
         }
     }

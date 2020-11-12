@@ -34,6 +34,7 @@ import io.foojay.api.discoclient.event.DCEvent;
 import io.foojay.api.discoclient.util.BundleFileInfo;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
@@ -46,6 +47,8 @@ import java.util.stream.Collectors;
 
 
 public class Main {
+    private static final int        PREFERRED_WIDTH  = 300;
+    private static final int        PREFERRED_HEIGHT = 120;
     private DiscoClient             discoClient;
     private JComboBox<Integer>      versionComboBox;
     private JComboBox<Distribution> distributionComboBox;
@@ -53,13 +56,14 @@ public class Main {
     private JComboBox<Extension>    extensionComboBox;
     private BundleTableModel        tableModel;
     private JTable                  table;
+    private JLabel                  filenameLabel;
     private JProgressBar            progressBar;
     private JButton                 downloadButton;
 
 
     public Main() {
         JFrame frame = new JFrame("Foojay Disco API");
-        frame.setSize(280, 100);
+        frame.setSize(PREFERRED_WIDTH, PREFERRED_HEIGHT);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -126,6 +130,7 @@ public class Main {
         extensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         Extension[] extensions = availableExtensions.toArray(Extension[]::new);
         extensionComboBox = new JComboBox(extensions);
+        extensionComboBox.setRenderer(new ExtensionListCellRenderer());
         extensionComboBox.addActionListener(e -> updateData());
 
         Box extensionVBox = Box.createVerticalBox();
@@ -155,12 +160,17 @@ public class Main {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoCreateRowSorter(true);
         ListSelectionModel selectionModel = table.getSelectionModel();
-        selectionModel.addListSelectionListener(e -> downloadButton.setEnabled(table.getSelectedRow() >= 0));
+        selectionModel.addListSelectionListener(e -> {
+            downloadButton.setEnabled(table.getSelectedRow() >= 0);
+            filenameLabel.setText(tableModel.getFilename(table.getSelectedRow()));
+        });
         JScrollPane tableScrollPane = new JScrollPane(table);
         tableScrollPane.setPreferredSize(new Dimension(400, 300));
 
 
         // Footer Box
+        filenameLabel = new JLabel("-");
+
         progressBar = new JProgressBar(0, 100);
         progressBar.setValue(0);
         progressBar.setStringPainted(true);
@@ -169,13 +179,18 @@ public class Main {
         downloadButton.setEnabled(false);
         downloadButton.addActionListener(e -> downloadBundle(frame));
 
-        Box fBox = Box.createHorizontalBox();
-        fBox.add(progressBar);
-        fBox.add(downloadButton);
+        Box footerHBox = Box.createHorizontalBox();
+        footerHBox.add(progressBar);
+        footerHBox.add(downloadButton);
+
+        Box footerVBox = Box.createVerticalBox();
+        footerVBox.add(filenameLabel);
+        footerVBox.add(footerHBox);
 
         JPanel footerPanel = new JPanel();
+        footerPanel.setBorder(new EmptyBorder(5, 10, 5, 10));
         footerPanel.setLayout(new BoxLayout(footerPanel, BoxLayout.PAGE_AXIS));
-        footerPanel.add(fBox);
+        footerPanel.add(footerVBox);
 
 
         // Setup main layout
@@ -249,10 +264,11 @@ public class Main {
         }
 
         Bundle         bundle         = tableModel.getBundles().get(table.getSelectedRow());
-        BundleFileInfo bundleFileInfo = discoClient.getBundleFileInfo(bundle.getId());
+        VersionNumber  versionNumber  = bundle.getVersionNumber();
+        BundleFileInfo bundleFileInfo = discoClient.getBundleFileInfo(bundle.getId(), versionNumber);
         String         fileName       = destinationFolder+  File.separator + bundleFileInfo.getFileName();
 
-        Future<?> future = discoClient.downloadBundle(bundle.getId(), fileName);
+        Future<?> future = discoClient.downloadBundle(bundle.getId(), fileName, versionNumber);
         try {
             assert null == future.get();
         } catch (InterruptedException | ExecutionException e) {
