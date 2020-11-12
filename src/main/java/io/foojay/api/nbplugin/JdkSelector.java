@@ -41,48 +41,56 @@ import java.awt.geom.Rectangle2D;
 import java.awt.geom.Rectangle2D.Double;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 
 public class JdkSelector extends JPanel {
-    private static final Color         DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
-    private static final Color         DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
-    private static final Color         DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
-    private static final Color         DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
-    private static final Color         PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
-    private DiscoClient                discoClient;
-    private Distribution               distribution;
-    private JLabel                     osLabel;
-    private ButtonGroup                buttonGroup;
-    private Map<Integer, JRadioButton> jdkSelectors;
-    private JLabel                     distributionLabel;
-    private RJPanel                    downloadArea;
-    private JLabel                     downloadLabel;
-    private JLabel                     versionNumberLabel;
-    private JLabel                     fileNameLabel;
-    private List<Bundle>               bundles;
-    private Bundle                     selectedBundle;
-    private BundleFileInfo             selectedBundleFileInfo;
-    private JFileChooser               directoryChooser;
-    private JProgressBar               progressBar;
+    private static final Color                        DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
+    private static final Color                        DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
+    private static final Color                        DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
+    private static final Color                        DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
+    private static final Color                        PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
+    private              DiscoClient                  discoClient;
+    private              Release                      jdk8;
+    private              Release                      lastLtsRelease;
+    private              Release                      currentRelease;
+    private              JLabel                       osLabel;
+    private              ButtonGroup                  buttonGroup;
+    private              Map<Integer, JRadioButton>   jdkSelectors;
+    private              JLabel                       distributionLabel;
+    private              RJPanel                      downloadArea;
+    private              JLabel                       downloadLabel;
+    private              JLabel                       versionNumberLabel;
+    private              JLabel                       fileNameLabel;
+    private              List<Bundle>                 bundles;
+    private              JFileChooser                 directoryChooser;
+    private              JProgressBar                 progressBar;
+    private              Map<Integer, BundleFileInfo> bundleMap;
 
 
     public JdkSelector() {
+        init();
+        registerListeners();
+
+        updateBundleMap(Distribution.ZULU, 8, Integer.valueOf(lastLtsRelease.getVersionNumber()), Integer.valueOf(currentRelease.getVersionNumber()));
+    }
+
+
+    private void init() {
         setPreferredSize(new Dimension(400, 300));
 
         discoClient            = new DiscoClient();
-        distribution           = Distribution.ZULU;
         bundles                = new ArrayList<>();
-        selectedBundle         = null;
-        selectedBundleFileInfo = null;
         progressBar            = new JProgressBar(0, 100);
         progressBar.setPreferredSize(new Dimension(progressBar.getPreferredSize().width, 5));
         progressBar.setForeground(Color.WHITE);
         progressBar.setValue(0);
         progressBar.setUI(new FlatProgressUI());
         progressBar.setVisible(false);
+        bundleMap = new HashMap<>();
 
 
         directoryChooser = new JFileChooser();
@@ -93,9 +101,9 @@ public class JdkSelector extends JPanel {
 
         osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
 
-        Release jdk8           = discoClient.getRelease("8");
-        Release lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
-        Release currentRelease = discoClient.getRelease(Release.LATEST_RELEASE);
+        jdk8           = discoClient.getRelease("8");
+        lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
+        currentRelease = discoClient.getRelease(Release.LATEST_RELEASE);
 
         buttonGroup  = new ButtonGroup();
         jdkSelectors = new ConcurrentHashMap<>();
@@ -160,10 +168,7 @@ public class JdkSelector extends JPanel {
 
         add(vBox);
         setBorder(new EmptyBorder(10, 10, 10 ,10));
-
-        registerListeners();
     }
-
 
     private void registerListeners() {
         discoClient.setOnDCEvent(e -> {
@@ -190,18 +195,8 @@ public class JdkSelector extends JPanel {
         distributionLabel.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(final MouseEvent e) {
                 if (progressBar.isVisible()) { return; }
-                distribution = showDistributionDialog(getParent());
-                buttonGroup.clearSelection();
-                selectedBundle         = null;
-                selectedBundleFileInfo = null;
-                downloadLabel.setForeground(DISABLED_LABEL_COLOR);
-                versionNumberLabel.setText("-");
-                versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
-                fileNameLabel.setText("-");
-                fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
-                downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
-                downloadArea.setEnabled(false);
-                jdkSelectors.entrySet().forEach(entry -> entry.getValue().setEnabled(true));
+                Distribution distribution = showDistributionDialog(getParent());
+                updateBundleMap(distribution, 8, Integer.valueOf(lastLtsRelease.getVersionNumber()), Integer.valueOf(currentRelease.getVersionNumber()));
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
@@ -219,7 +214,9 @@ public class JdkSelector extends JPanel {
             @Override public void mousePressed(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
                     SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
-                    downloadBundle(getParent());
+
+                    final Integer selectedFeatureVersion = jdkSelectors.entrySet().stream().filter(entry -> entry.getValue().isSelected()).mapToInt(entry -> entry.getKey()).findFirst().getAsInt();
+                    downloadBundle(getParent(), selectedFeatureVersion);
                 }
             }
             @Override public void mouseReleased(final MouseEvent e) {
@@ -249,56 +246,26 @@ public class JdkSelector extends JPanel {
     private JRadioButton createRadioButton(final Release release, final ButtonGroup buttonGroup) {
         JRadioButton radioButton = new JRadioButton("JDK " + release.getVersionNumber());
         radioButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-        radioButton.addActionListener(e -> update(Integer.parseInt(release.getVersionNumber())));
+        radioButton.addActionListener(e -> updateDownloadArea(Integer.parseInt(release.getVersionNumber())));
         buttonGroup.add(radioButton);
         return radioButton;
     }
 
-    private void update(final int featureVersion) {
-        bundles = discoClient.getBundles(distribution,
-                                         new VersionNumber(featureVersion),
-                                         Latest.OVERALL,
-                                         discoClient.getOperatingSystem(),
-                                         Architecture.NONE,
-                                         Bitness.NONE,
-                                         Extension.NONE,
-                                         BundleType.JDK,
-                                         false,
-                                         ReleaseStatus.NONE,
-                                         SupportTerm.NONE);
+    private void updateDownloadArea(final Integer featureVersion) {
+        if (null == featureVersion || !bundleMap.keySet().contains(featureVersion)) { return; }
+        downloadArea.setEnabled(true);
+        downloadArea.setBackground(DOWNLOAD_AREA_STD);
+        downloadLabel.setForeground(Color.WHITE);
+        versionNumberLabel.setForeground(Color.WHITE);
+        fileNameLabel.setForeground(Color.WHITE);
 
-        if (bundles.isEmpty()) {
-            downloadArea.setEnabled(false);
-            downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
-            downloadLabel.setForeground(DISABLED_LABEL_COLOR);
-            versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
-            fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
-
-            jdkSelectors.get(featureVersion).setSelected(false);
-            jdkSelectors.get(featureVersion).setEnabled(false);
-
-            selectedBundle         = null;
-            selectedBundleFileInfo = null;
-
-            versionNumberLabel.setText("-");
-            fileNameLabel.setText("-");
-        } else {
-            downloadArea.setEnabled(true);
-            downloadArea.setBackground(DOWNLOAD_AREA_STD);
-            downloadLabel.setForeground(Color.WHITE);
-            versionNumberLabel.setForeground(Color.WHITE);
-            fileNameLabel.setForeground(Color.WHITE);
-
-            selectedBundle         = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
-            selectedBundleFileInfo = discoClient.getBundleFileInfo(selectedBundle.getId());
-
-            versionNumberLabel.setText(selectedBundle.getVersionNumber().toString());
-            fileNameLabel.setText(selectedBundle.getFileName());
-        }
+        final BundleFileInfo selectedBundleInfo = bundleMap.get(featureVersion);
+        versionNumberLabel.setText(selectedBundleInfo.getVersionNumber().toString());
+        fileNameLabel.setText(selectedBundleInfo.getFileName());
     }
 
-    private void downloadBundle(final Container parent) {
-        if (!downloadArea.isEnabled() || progressBar.isVisible()) { return; }
+    private void downloadBundle(final Container parent, final Integer featureVersion) {
+        if (!downloadArea.isEnabled() || progressBar.isVisible() || null == bundleMap.get(featureVersion)) { return; }
 
         String targetFolder;
         if (directoryChooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
@@ -308,10 +275,41 @@ public class JdkSelector extends JPanel {
         }
 
         if (null != targetFolder) {
-            long   bundleId = selectedBundleFileInfo.getId();
-            String fileName = selectedBundleFileInfo.getFileName();
-            discoClient.downloadBundle(bundleId, targetFolder + File.separator + fileName);
+            BundleFileInfo selectedBundleFileInfo = bundleMap.get(featureVersion);
+            long           bundleId               = selectedBundleFileInfo.getId();
+            String         fileName               = selectedBundleFileInfo.getFileName();
+            VersionNumber  versionNumber          = selectedBundleFileInfo.getVersionNumber();
+            discoClient.downloadBundle(bundleId, targetFolder + File.separator + fileName, versionNumber);
         }
+    }
+
+    private void updateBundleMap(final Distribution distribution, final Integer... featureVersions) {
+        if (null == featureVersions || featureVersions.length == 0) { return; }
+        bundleMap.clear();
+
+        for (Integer featureVersion : featureVersions) {
+            bundles = discoClient.getBundles(distribution, new VersionNumber(featureVersion), Latest.OVERALL,
+                                             discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE,
+                                             Extension.NONE, BundleType.JDK, false, ReleaseStatus.NONE, SupportTerm.NONE);
+
+            if (bundles.isEmpty()) {
+                bundleMap.put(featureVersion, null);
+                jdkSelectors.get(featureVersion).setEnabled(false);
+            } else {
+                Bundle bundleFound = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
+                bundleMap.put(featureVersion, discoClient.getBundleFileInfo(bundleFound.getId(), bundleFound.getVersionNumber()));
+                jdkSelectors.get(featureVersion).setEnabled(true);
+            }
+        }
+
+        buttonGroup.clearSelection();
+        downloadArea.setEnabled(false);
+        downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
+        downloadLabel.setForeground(DISABLED_LABEL_COLOR);
+        versionNumberLabel.setForeground(DISABLED_LABEL_COLOR);
+        fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
+        versionNumberLabel.setText("-");
+        fileNameLabel.setText("-");
     }
 
     private Distribution showDistributionDialog(final Container parent) {
