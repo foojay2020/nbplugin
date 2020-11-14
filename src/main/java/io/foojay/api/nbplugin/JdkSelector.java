@@ -53,6 +53,8 @@ public class JdkSelector extends JPanel {
     private static final Color                        DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
     private static final Color                        DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
     private static final Color                        PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
+    private static final Color                        BACKGROUND_COLOR       = new Color(45, 45, 45);
+    private static final Color                        TEXT_COLOR             = new Color(164, 164, 164);
     private              DiscoClient                  discoClient;
     private              Release                      jdk8;
     private              Release                      lastLtsRelease;
@@ -100,6 +102,7 @@ public class JdkSelector extends JPanel {
         directoryChooser.setAcceptAllFileFilterUsed(false);
 
         osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
+        osLabel.setForeground(TEXT_COLOR);
 
         jdk8           = discoClient.getRelease("8");
         lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
@@ -168,6 +171,8 @@ public class JdkSelector extends JPanel {
 
         add(vBox);
         setBorder(new EmptyBorder(10, 10, 10 ,10));
+
+        setBackground(BACKGROUND_COLOR);
     }
 
     private void registerListeners() {
@@ -245,6 +250,7 @@ public class JdkSelector extends JPanel {
 
     private JRadioButton createRadioButton(final Release release, final ButtonGroup buttonGroup) {
         JRadioButton radioButton = new JRadioButton("JDK " + release.getVersionNumber());
+        radioButton.setForeground(TEXT_COLOR);
         radioButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         radioButton.addActionListener(e -> updateDownloadArea(Integer.parseInt(release.getVersionNumber())));
         buttonGroup.add(radioButton);
