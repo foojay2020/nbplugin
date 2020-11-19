@@ -44,7 +44,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 
 public class JdkSelector extends JPanel {
@@ -56,6 +58,7 @@ public class JdkSelector extends JPanel {
     private static final Color                        BACKGROUND_COLOR       = new Color(45, 45, 45);
     private static final Color                        TEXT_COLOR             = new Color(164, 164, 164);
     private              DiscoClient                  discoClient;
+    private              int                          selectedFeatureVersion;
     private              Release                      jdk8;
     private              Release                      lastLtsRelease;
     private              Release                      currentRelease;
@@ -70,7 +73,11 @@ public class JdkSelector extends JPanel {
     private              List<Bundle>                 bundles;
     private              JFileChooser                 directoryChooser;
     private              JProgressBar                 progressBar;
+    private              JComboBox<Extension>         extensionComboBox;
     private              Map<Integer, BundleFileInfo> bundleMap;
+    private              List<Bundle> bundlesFound8;
+    private              List<Bundle> bundlesFoundLastLts;
+    private              List<Bundle> bundlesFoundCurrent;
 
 
     public JdkSelector() {
@@ -92,8 +99,25 @@ public class JdkSelector extends JPanel {
         progressBar.setValue(0);
         progressBar.setUI(new FlatProgressUI());
         progressBar.setVisible(false);
-        bundleMap = new HashMap<>();
-
+        extensionComboBox     = new JComboBox<>();
+        extensionComboBox.setEnabled(false);
+        extensionComboBox.setMaximumSize(new Dimension(80, extensionComboBox.getPreferredSize().height));
+        extensionComboBox.addActionListener(e -> {
+            if (selectedFeatureVersion == 8) {
+                Optional<Bundle> selectedBundle = bundlesFound8.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
+                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
+            } else if (selectedFeatureVersion == lastLtsRelease.getFeatureVersion()) {
+                Optional<Bundle> selectedBundle = bundlesFoundLastLts.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
+                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
+            } else if (selectedFeatureVersion == currentRelease.getFeatureVersion()) {
+                Optional<Bundle> selectedBundle = bundlesFoundCurrent.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
+                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
+            }
+        });
+        bundleMap             = new HashMap<>();
+        bundlesFound8         = new ArrayList<>();
+        bundlesFoundLastLts = new ArrayList<>();
+        bundlesFoundCurrent   = new ArrayList<>();
 
         directoryChooser = new JFileChooser();
         directoryChooser.setCurrentDirectory(new File("."));
@@ -137,10 +161,16 @@ public class JdkSelector extends JPanel {
         fileNameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
 
+        Box extensionBox = Box.createHorizontalBox();
+        extensionBox.add(versionNumberLabel);
+        extensionBox.add(Box.createRigidArea(new Dimension(50, 0)));
+        extensionBox.add(extensionComboBox);
+
         Box downloadVBox = Box.createVerticalBox();
         downloadVBox.add(downloadLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
-        downloadVBox.add(versionNumberLabel);
+        //downloadVBox.add(versionNumberLabel);
+        downloadVBox.add(extensionBox);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
         downloadVBox.add(fileNameLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -259,11 +289,22 @@ public class JdkSelector extends JPanel {
 
     private void updateDownloadArea(final Integer featureVersion) {
         if (null == featureVersion || !bundleMap.keySet().contains(featureVersion)) { return; }
+        selectedFeatureVersion = featureVersion;
         downloadArea.setEnabled(true);
         downloadArea.setBackground(DOWNLOAD_AREA_STD);
         downloadLabel.setForeground(Color.WHITE);
         versionNumberLabel.setForeground(Color.WHITE);
         fileNameLabel.setForeground(Color.WHITE);
+
+        extensionComboBox.removeAllItems();
+        if (featureVersion == 8) {
+            bundlesFound8.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
+        } else if (featureVersion == lastLtsRelease.getFeatureVersion()) {
+            bundlesFoundLastLts.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
+        } else if (featureVersion == currentRelease.getFeatureVersion()) {
+            bundlesFoundCurrent.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
+        }
+        extensionComboBox.setEnabled(extensionComboBox.getItemCount() != 0);
 
         final BundleFileInfo selectedBundleInfo = bundleMap.get(featureVersion);
         versionNumberLabel.setText(selectedBundleInfo.getVersionNumber().toString());
@@ -291,6 +332,11 @@ public class JdkSelector extends JPanel {
 
     private void updateBundleMap(final Distribution distribution, final Integer... featureVersions) {
         if (null == featureVersions || featureVersions.length == 0) { return; }
+        extensionComboBox.removeAllItems();
+        extensionComboBox.setEnabled(false);
+        bundlesFound8.clear();
+        bundlesFoundLastLts.clear();
+        bundlesFoundCurrent.clear();
         bundleMap.clear();
 
         for (Integer featureVersion : featureVersions) {
@@ -301,10 +347,20 @@ public class JdkSelector extends JPanel {
             if (bundles.isEmpty()) {
                 bundleMap.put(featureVersion, null);
                 jdkSelectors.get(featureVersion).setEnabled(false);
+                jdkSelectors.get(featureVersion).setToolTipText("Not available for " + discoClient.getOperatingSystem().getUiString());
             } else {
+                if (featureVersion == 8) {
+                    bundlesFound8 = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
+                } else if (featureVersion == lastLtsRelease.getFeatureVersion()) {
+                    bundlesFoundLastLts = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
+                } else if (featureVersion == currentRelease.getFeatureVersion()) {
+                    bundlesFoundCurrent = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
+                }
+
                 Bundle bundleFound = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
                 bundleMap.put(featureVersion, discoClient.getBundleFileInfo(bundleFound.getId(), bundleFound.getVersionNumber()));
                 jdkSelectors.get(featureVersion).setEnabled(true);
+                jdkSelectors.get(featureVersion).setToolTipText(null);
             }
         }
 
@@ -316,6 +372,13 @@ public class JdkSelector extends JPanel {
         fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
         versionNumberLabel.setText("-");
         fileNameLabel.setText("-");
+    }
+
+    private void updateSelectedBundle(final int featureVersion, final Bundle bundle) {
+        bundleMap.put(featureVersion, discoClient.getBundleFileInfo(bundle.getId(), bundle.getVersionNumber()));
+        final BundleFileInfo selectedBundleInfo = bundleMap.get(featureVersion);
+        versionNumberLabel.setText(selectedBundleInfo.getVersionNumber().toString());
+        fileNameLabel.setText(selectedBundleInfo.getFileName());
     }
 
     private Distribution showDistributionDialog(final Container parent) {
