@@ -169,7 +169,6 @@ public class JdkSelector extends JPanel {
         Box downloadVBox = Box.createVerticalBox();
         downloadVBox.add(downloadLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
-        //downloadVBox.add(versionNumberLabel);
         downloadVBox.add(extensionBox);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
         downloadVBox.add(fileNameLabel);
@@ -342,7 +341,7 @@ public class JdkSelector extends JPanel {
         for (Integer featureVersion : featureVersions) {
             bundles = discoClient.getBundles(distribution, new VersionNumber(featureVersion), Latest.OVERALL,
                                              discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE,
-                                             Extension.NONE, BundleType.JDK, false, ReleaseStatus.NONE, SupportTerm.NONE);
+                                             Extension.NONE, BundleType.JDK, false, ReleaseStatus.GA, SupportTerm.NONE);
 
             if (bundles.isEmpty()) {
                 bundleMap.put(featureVersion, null);
