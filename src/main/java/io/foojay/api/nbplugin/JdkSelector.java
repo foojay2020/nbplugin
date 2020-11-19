@@ -75,9 +75,9 @@ public class JdkSelector extends JPanel {
     private              JProgressBar                 progressBar;
     private              JComboBox<Extension>         extensionComboBox;
     private              Map<Integer, BundleFileInfo> bundleMap;
-    private              List<Bundle> bundlesFound8;
-    private              List<Bundle> bundlesFoundLastLts;
-    private              List<Bundle> bundlesFoundCurrent;
+    private              List<Bundle>                 bundlesFound8;
+    private              List<Bundle>                 bundlesFoundLastLts;
+    private              List<Bundle>                 bundlesFoundCurrent;
 
 
     public JdkSelector() {
@@ -114,10 +114,10 @@ public class JdkSelector extends JPanel {
                 if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
             }
         });
-        bundleMap             = new HashMap<>();
-        bundlesFound8         = new ArrayList<>();
+        bundleMap           = new HashMap<>();
+        bundlesFound8       = new ArrayList<>();
         bundlesFoundLastLts = new ArrayList<>();
-        bundlesFoundCurrent   = new ArrayList<>();
+        bundlesFoundCurrent = new ArrayList<>();
 
         directoryChooser = new JFileChooser();
         directoryChooser.setCurrentDirectory(new File("."));
