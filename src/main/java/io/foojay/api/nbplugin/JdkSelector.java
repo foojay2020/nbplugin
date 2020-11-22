@@ -357,7 +357,7 @@ public class JdkSelector extends JPanel {
                 }
 
                 Bundle bundleFound = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
-                bundleMap.put(featureVersion, discoClient.getBundleFileInfo(bundleFound.getId(), bundleFound.getVersionNumber()));
+                bundleMap.put(featureVersion, discoClient.getBundleFileInfoSCDL(bundleFound.getId(), bundleFound.getVersionNumber()));
                 jdkSelectors.get(featureVersion).setEnabled(true);
                 jdkSelectors.get(featureVersion).setToolTipText(null);
             }
