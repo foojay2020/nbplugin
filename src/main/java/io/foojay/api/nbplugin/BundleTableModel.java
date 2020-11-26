@@ -29,7 +29,7 @@ import java.util.List;
 
 
 public class BundleTableModel extends AbstractTableModel {
-    private String[]     columnNames = { "Version", "Distribution", "Vendor", "Bundle Type", "Release Status", "Extension" };
+    private String[]     columnNames = { "Version", "Distribution", "Bundle Type", "Release Status", "Extension" };
     private List<Bundle> bundles;
 
 
@@ -49,8 +49,7 @@ public class BundleTableModel extends AbstractTableModel {
             case 1 :
             case 2 :
             case 3 :
-            case 4 :
-            case 5 : return columnNames[col];
+            case 4 : return columnNames[col];
             default: return null;
         }
     }
@@ -59,10 +58,9 @@ public class BundleTableModel extends AbstractTableModel {
         switch(col) {
             case 0 : return VersionNumber.class;
             case 1 : return Distribution.class;
-            case 2 : return String.class;
-            case 3 : return BundleType.class;
-            case 4 : return ReleaseStatus.class;
-            case 5 : return Extension.class;
+            case 2 : return BundleType.class;
+            case 3 : return ReleaseStatus.class;
+            case 4 : return Extension.class;
             default: return null;
         }
     }
@@ -80,11 +78,6 @@ public class BundleTableModel extends AbstractTableModel {
     public Distribution getDistribution(final int row) {
         if (row < 0 || row > getRowCount()) { return null; }
         return bundles.get(row).getDistribution();
-    }
-
-    public String getVendor(final int row) {
-        if (row < 0 || row > getRowCount()) { return null; }
-        return bundles.get(row).getDistribution().getVendor();
     }
 
     public BundleType getBundleType(final int row) {
@@ -127,10 +120,9 @@ public class BundleTableModel extends AbstractTableModel {
         switch(col) {
             case 0 : return bundle.getVersionNumber();
             case 1 : return bundle.getDistribution().getUiString();
-            case 2 : return bundle.getDistribution().getVendor();
-            case 3 : return bundle.getBundleType().getUiString();
-            case 4 : return bundle.getReleaseStatus().name();
-            case 5 : return bundle.getExtension().getUiString();
+            case 2 : return bundle.getBundleType().getUiString();
+            case 3 : return bundle.getReleaseStatus().name();
+            case 4 : return bundle.getExtension().getUiString();
             default: return null;
         }
     }
