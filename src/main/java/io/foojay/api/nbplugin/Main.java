@@ -18,20 +18,19 @@ package io.foojay.api.nbplugin;
 
 
 import io.foojay.api.discoclient.DiscoClient;
-import io.foojay.api.discoclient.bundle.Architecture;
-import io.foojay.api.discoclient.bundle.Bitness;
-import io.foojay.api.discoclient.bundle.Bundle;
-import io.foojay.api.discoclient.bundle.BundleType;
-import io.foojay.api.discoclient.bundle.Distribution;
-import io.foojay.api.discoclient.bundle.Extension;
-import io.foojay.api.discoclient.bundle.Latest;
-import io.foojay.api.discoclient.bundle.OperatingSystem;
-import io.foojay.api.discoclient.bundle.Release;
-import io.foojay.api.discoclient.bundle.ReleaseStatus;
-import io.foojay.api.discoclient.bundle.SupportTerm;
-import io.foojay.api.discoclient.bundle.VersionNumber;
 import io.foojay.api.discoclient.event.DCEvent;
-import io.foojay.api.discoclient.util.BundleFileInfo;
+import io.foojay.api.discoclient.pkg.Architecture;
+import io.foojay.api.discoclient.pkg.ArchiveType;
+import io.foojay.api.discoclient.pkg.Bitness;
+import io.foojay.api.discoclient.pkg.Distribution;
+import io.foojay.api.discoclient.pkg.Latest;
+import io.foojay.api.discoclient.pkg.MajorVersion;
+import io.foojay.api.discoclient.pkg.OperatingSystem;
+import io.foojay.api.discoclient.pkg.PackageType;
+import io.foojay.api.discoclient.pkg.Pkg;
+import io.foojay.api.discoclient.pkg.SemVer;
+import io.foojay.api.discoclient.pkg.TermOfSupport;
+import io.foojay.api.discoclient.util.PkgInfo;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -40,7 +39,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -50,11 +51,11 @@ public class Main {
     private static final int        PREFERRED_WIDTH  = 600;
     private static final int        PREFERRED_HEIGHT = 300;
     private DiscoClient             discoClient;
-    private JComboBox<Integer>      versionComboBox;
+    private JComboBox<SemVer>       versionComboBox;
     private JComboBox<Distribution> distributionComboBox;
-    private JComboBox<BundleType>   bundleTypeComboBox;
-    private JComboBox<Extension>    extensionComboBox;
-    private BundleTableModel        tableModel;
+    private JComboBox<PackageType>  packageTypeComboBox;
+    private JComboBox<ArchiveType>  archiveType;
+    private PackageTableModel       tableModel;
     private JTable                  table;
     private JLabel                  filenameLabel;
     private JProgressBar            progressBar;
@@ -74,19 +75,20 @@ public class Main {
 
 
         // Get release infos
-        Release lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
-        Integer lastLtsFeatureRelease = Integer.valueOf(lastLtsRelease.getVersionNumber());
-
-        Release nextRelease = discoClient.getRelease(Release.NEXT_RELEASE);
-        Integer nextFeatureRelease = Integer.valueOf(nextRelease.getVersionNumber());
-
+        MajorVersion lastLtsRelease        = discoClient.getLatestLts(false);
+        Integer      lastLtsFeatureRelease = lastLtsRelease.getAsInt();
 
         // Versions
+        List<MajorVersion> allMajorVersions = discoClient.getAllMajorVersions(Optional.empty(), Optional.of(Boolean.TRUE), Optional.empty());
+        HashSet<SemVer>    allVersions      = new HashSet<>();
+        allMajorVersions.forEach(majorVersion -> allVersions.addAll(majorVersion.getVersions()));
+        List<SemVer> sortedVersions = allVersions.stream().sorted(Comparator.comparing(SemVer::getVersionNumber).reversed()).collect(Collectors.toList());
+
         JLabel versionLabel = new JLabel("Versions");
         versionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        List<Integer> versionNumbers = new ArrayList<>();
-        for (Integer i = 6 ; i <= nextFeatureRelease ; i++) { versionNumbers.add(i); }
-        versionComboBox = new JComboBox<>(versionNumbers.toArray(new Integer[0]));
+        //List<Integer> versionNumbers = new ArrayList<>();
+        //for (Integer i = 6 ; i <= nextFeatureRelease ; i++) { versionNumbers.add(i); }
+        versionComboBox = new JComboBox<>(sortedVersions.toArray(new SemVer[0]));
         versionComboBox.setSelectedItem(lastLtsFeatureRelease);
         versionComboBox.addActionListener(e -> updateData());
 
@@ -99,7 +101,7 @@ public class Main {
         // Distributions
         JLabel distributionLabel = new JLabel("Distributions");
         distributionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        Distribution[] distributions = { Distribution.ADOPT, Distribution.CORRETTO, Distribution.DRAGONWELL, Distribution.LIBERICA, Distribution.OPEN_JDK, Distribution.SAP_MACHINE, Distribution.ZULU };
+        Distribution[] distributions = { Distribution.AOJ, Distribution.AOJ_OPENJ9, Distribution.CORRETTO, Distribution.DRAGONWELL, Distribution.LIBERICA, Distribution.ORACLE, Distribution.ORACLE_OPEN_JDK, Distribution.RED_HAT, Distribution.SAP_MACHINE, Distribution.ZULU };
         distributionComboBox = new JComboBox<>(distributions);
         distributionComboBox.setRenderer(new DistributionListCellRenderer());
         distributionComboBox.setSelectedItem(Distribution.ZULU);
@@ -112,31 +114,31 @@ public class Main {
 
 
         // Bundle Types
-        JLabel bundleTypeLabel = new JLabel("Bundle Type");
-        bundleTypeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        BundleType[] bundleTypes = Arrays.stream(BundleType.values()).filter(bundleType -> BundleType.NONE != bundleType).filter(bundleType -> BundleType.NOT_FOUND != bundleType).toArray(BundleType[]::new);
-        bundleTypeComboBox = new JComboBox<>(bundleTypes);
-        bundleTypeComboBox.addActionListener(e -> updateData());
+        JLabel packageTypeLabel = new JLabel("Bundle Type");
+        packageTypeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        PackageType[] packageTypes = Arrays.stream(PackageType.values()).filter(packageType -> PackageType.NONE != packageType).filter(packageType -> PackageType.NOT_FOUND != packageType).toArray(PackageType[]::new);
+        packageTypeComboBox = new JComboBox<>(packageTypes);
+        packageTypeComboBox.addActionListener(e -> updateData());
 
-        Box bundleTypeVBox = Box.createVerticalBox();
-        bundleTypeVBox.add(bundleTypeLabel);
-        bundleTypeVBox.add(bundleTypeComboBox);
-        bundleTypeVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+        Box packageTypeVBox = Box.createVerticalBox();
+        packageTypeVBox.add(packageTypeLabel);
+        packageTypeVBox.add(packageTypeComboBox);
+        packageTypeVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 
 
-        // Extension
-        List<Extension> availableExtensions = new ArrayList<>(discoClient.getExtensions(discoClient.getOperatingSystem()));
-        availableExtensions.add(0, Extension.NONE);
-        JLabel extensionLabel = new JLabel("Extension");
+        // ArchiveType
+        List<ArchiveType> availableArchiveTypes = new ArrayList<>(discoClient.getArchiveTypes(discoClient.getOperatingSystem()));
+        availableArchiveTypes.add(0, ArchiveType.NONE);
+        JLabel extensionLabel = new JLabel("ArchiveType");
         extensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        Extension[] extensions = availableExtensions.toArray(Extension[]::new);
-        extensionComboBox = new JComboBox(extensions);
-        extensionComboBox.setRenderer(new ExtensionListCellRenderer());
-        extensionComboBox.addActionListener(e -> updateData());
+        ArchiveType[] extensions = availableArchiveTypes.toArray(ArchiveType[]::new);
+        archiveType = new JComboBox(extensions);
+        archiveType.setRenderer(new ArchiveTypeListCellRenderer());
+        archiveType.addActionListener(e -> updateData());
 
         Box extensionVBox = Box.createVerticalBox();
         extensionVBox.add(extensionLabel);
-        extensionVBox.add(extensionComboBox);
+        extensionVBox.add(archiveType);
         extensionVBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 
 
@@ -144,7 +146,7 @@ public class Main {
         Box hBox = Box.createHorizontalBox();
         hBox.add(versionsVBox);
         hBox.add(distributionVBox);
-        hBox.add(bundleTypeVBox);
+        hBox.add(packageTypeVBox);
         hBox.add(extensionVBox);
 
         Box vBox = Box.createVerticalBox();
@@ -157,8 +159,8 @@ public class Main {
 
         // Table
         Font tableFont = versionLabel.getFont();
-        tableFont = new Font(tableFont.getName(), Font.PLAIN, 13);
-        tableModel = new BundleTableModel(List.of());
+        tableFont  = new Font(tableFont.getName(), Font.PLAIN, 13);
+        tableModel = new PackageTableModel(List.of());
         table      = new JTable(tableModel);
         table.setFont(tableFont);
         table.setOpaque(true);
@@ -223,25 +225,28 @@ public class Main {
 
     private void updateData() {
         Distribution    distribution    = (Distribution) distributionComboBox.getSelectedItem();
-        Integer         featureVersion  = (Integer) versionComboBox.getSelectedItem();
+        SemVer          semVer          = (SemVer) versionComboBox.getSelectedItem();
         OperatingSystem operatingSystem = discoClient.getOperatingSystem();
         Architecture    architecture    = Architecture.NONE;
         Bitness         bitness         = Bitness.NONE;
-        Extension       extension       = (Extension) extensionComboBox.getSelectedItem();
-        BundleType      bundleType      = (BundleType) bundleTypeComboBox.getSelectedItem();
-        Boolean         fx              = false;
-        ReleaseStatus   releaseStatus   = ReleaseStatus.NONE;
-        SupportTerm     supportTerm     = SupportTerm.NONE;
-        List<Bundle>    bundles         = discoClient.getBundles(distribution, new VersionNumber(featureVersion), Latest.OVERALL, operatingSystem, architecture, bitness, extension, bundleType, fx, releaseStatus,  supportTerm);
-        List<Bundle>    sortedBundles   = bundles.stream()
-                                                 .sorted(Comparator.comparing(Bundle::getDistributionName)
-                                                                   .thenComparing(Bundle::getVersionNumber).reversed()
-                                                                   .thenComparing(Bundle::getOperatingSystem)
-                                                                   .thenComparing(Bundle::getArchitecture))
-                                                 .collect(Collectors.toList());
+        ArchiveType     archiveType     = (ArchiveType) this.archiveType.getSelectedItem();
+        PackageType     packageType     = (PackageType) packageTypeComboBox.getSelectedItem();
+        Boolean         javaFxBundled   = false;
+        TermOfSupport   termOfSupport   = TermOfSupport.NONE;
+
+        List<Pkg>       packages        = new ArrayList<>();
+        packages.addAll(discoClient.getPkgs(distribution, semVer.getVersionNumber(), Latest.OVERALL, operatingSystem, architecture, bitness, archiveType, packageType, javaFxBundled, semVer.getReleaseStatus(), termOfSupport));
+        //packages.addAll(discoClient.getPkgs(distribution, semVer.getVersionNumber(), Latest.OVERALL, operatingSystem, architecture, bitness, archiveType, packageType, javaFxBundled, semVer.getReleaseStatus(), termOfSupport));
+        List<Pkg>       sortedPackages  = packages.stream()
+                                                  .sorted(Comparator.comparing(Pkg::getDistributionName)
+                                                  .thenComparing(Pkg::getJavaVersion).reversed()
+                                                  .thenComparing(Pkg::getOperatingSystem)
+                                                  .thenComparing(Pkg::getArchitecture))
+                                                  .collect(Collectors.toList());
+
         SwingUtilities.invokeLater(() -> {
-            BundleTableModel tableModel = (BundleTableModel) table.getModel();
-            tableModel.setBundles(sortedBundles);
+            PackageTableModel tableModel = (PackageTableModel) table.getModel();
+            tableModel.setPkgs(sortedPackages);
             tableModel.fireTableDataChanged();
         });
     }
@@ -280,12 +285,11 @@ public class Main {
             return;
         }
 
-        Bundle         bundle         = tableModel.getBundles().get(table.getSelectedRow());
-        VersionNumber  versionNumber  = bundle.getVersionNumber();
-        BundleFileInfo bundleFileInfo = discoClient.getBundleFileInfo(bundle.getId(), versionNumber);
-        String         fileName       = destinationFolder+  File.separator + bundleFileInfo.getFileName();
-
-        Future<?> future = discoClient.downloadBundle(bundle.getId(), fileName, versionNumber);
+        Pkg       pkg           = tableModel.getPkgs().get(table.getSelectedRow());
+        SemVer    versionNumber = pkg.getJavaVersion();
+        PkgInfo   pkgInfo       = discoClient.getPkgInfo(pkg.getId(), versionNumber);
+        String    fileName      = destinationFolder+  File.separator + pkgInfo.getFileName();
+        Future<?> future        = discoClient.downloadPkg(pkgInfo, fileName);
         try {
             assert null == future.get();
         } catch (InterruptedException | ExecutionException e) {

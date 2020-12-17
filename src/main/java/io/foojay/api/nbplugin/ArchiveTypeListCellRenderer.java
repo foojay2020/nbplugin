@@ -16,27 +16,19 @@
 
 package io.foojay.api.nbplugin;
 
+import io.foojay.api.discoclient.pkg.ArchiveType;
+
 import javax.swing.*;
 import java.awt.*;
 
 
-public class DrillDownDemo {
+public class ArchiveTypeListCellRenderer extends DefaultListCellRenderer {
 
-    public DrillDownDemo() {
-        DrillDownSelector drillDownSelector = new DrillDownSelector();
-
-        JFrame frame = new JFrame("Foojay Disco API");
-        frame.setSize(400, 300);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        // Setup main layout
-        frame.getContentPane().add(drillDownSelector, BorderLayout.CENTER);
-
-        // Show frame
-        frame.pack();
-        frame.setVisible(true);
+    public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+        if (value instanceof ArchiveType) {
+            value = ((ArchiveType) value).getUiString();
+        }
+        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+        return this;
     }
-
-    public static void main(String[] args) { new DrillDownDemo(); }
 }

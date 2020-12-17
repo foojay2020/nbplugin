@@ -16,7 +16,7 @@
 
 package io.foojay.api.nbplugin;
 
-import io.foojay.api.discoclient.bundle.Distribution;
+import io.foojay.api.discoclient.pkg.Distribution;
 
 import javax.swing.*;
 import java.awt.*;

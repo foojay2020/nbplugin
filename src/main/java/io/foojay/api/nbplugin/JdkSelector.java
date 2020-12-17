@@ -17,18 +17,18 @@
 package io.foojay.api.nbplugin;
 
 import io.foojay.api.discoclient.DiscoClient;
-import io.foojay.api.discoclient.bundle.Architecture;
-import io.foojay.api.discoclient.bundle.Bitness;
-import io.foojay.api.discoclient.bundle.Bundle;
-import io.foojay.api.discoclient.bundle.BundleType;
-import io.foojay.api.discoclient.bundle.Distribution;
-import io.foojay.api.discoclient.bundle.Extension;
-import io.foojay.api.discoclient.bundle.Latest;
-import io.foojay.api.discoclient.bundle.Release;
-import io.foojay.api.discoclient.bundle.ReleaseStatus;
-import io.foojay.api.discoclient.bundle.SupportTerm;
-import io.foojay.api.discoclient.bundle.VersionNumber;
-import io.foojay.api.discoclient.util.BundleFileInfo;
+import io.foojay.api.discoclient.pkg.Architecture;
+import io.foojay.api.discoclient.pkg.Bitness;
+import io.foojay.api.discoclient.pkg.Pkg;
+import io.foojay.api.discoclient.pkg.PackageType;
+import io.foojay.api.discoclient.pkg.Distribution;
+import io.foojay.api.discoclient.pkg.ArchiveType;
+import io.foojay.api.discoclient.pkg.Latest;
+import io.foojay.api.discoclient.pkg.MajorVersion;
+import io.foojay.api.discoclient.pkg.ReleaseStatus;
+import io.foojay.api.discoclient.pkg.TermOfSupport;
+import io.foojay.api.discoclient.pkg.VersionNumber;
+import io.foojay.api.discoclient.util.PkgInfo;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -42,9 +42,11 @@ import java.awt.geom.Rectangle2D.Double;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -59,9 +61,9 @@ public class JdkSelector extends JPanel {
     private static final Color                        TEXT_COLOR             = new Color(164, 164, 164);
     private              DiscoClient                  discoClient;
     private              int                          selectedFeatureVersion;
-    private              Release                      jdk8;
-    private              Release                      lastLtsRelease;
-    private              Release                      currentRelease;
+    private              MajorVersion                      jdk8;
+    private              MajorVersion                      lastLts;
+    private              MajorVersion                      current;
     private              JLabel                       osLabel;
     private              ButtonGroup                  buttonGroup;
     private              Map<Integer, JRadioButton>   jdkSelectors;
@@ -70,21 +72,21 @@ public class JdkSelector extends JPanel {
     private              JLabel                       downloadLabel;
     private              JLabel                       versionNumberLabel;
     private              JLabel                       fileNameLabel;
-    private              List<Bundle>                 bundles;
+    private              List<Pkg>                    pkgs;
     private              JFileChooser                 directoryChooser;
     private              JProgressBar                 progressBar;
-    private              JComboBox<Extension>         extensionComboBox;
-    private              Map<Integer, BundleFileInfo> bundleMap;
-    private              List<Bundle>                 bundlesFound8;
-    private              List<Bundle>                 bundlesFoundLastLts;
-    private              List<Bundle>                 bundlesFoundCurrent;
+    private              JComboBox<ArchiveType>       archiveTypeComboBox;
+    private              Map<Integer, PkgInfo>        pkgMap;
+    private              List<Pkg>                    pkgsFound8;
+    private              List<Pkg>                    pkgsFoundLastLts;
+    private              List<Pkg>                    pkgsFoundCurrent;
 
 
     public JdkSelector() {
         init();
         registerListeners();
 
-        updateBundleMap(Distribution.ZULU, 8, Integer.valueOf(lastLtsRelease.getVersionNumber()), Integer.valueOf(currentRelease.getVersionNumber()));
+        updatePkgMap(Distribution.ZULU, 8, Integer.valueOf(lastLts.getAsInt()), Integer.valueOf(current.getAsInt()));
     }
 
 
@@ -92,32 +94,32 @@ public class JdkSelector extends JPanel {
         setPreferredSize(new Dimension(400, 300));
 
         discoClient            = new DiscoClient();
-        bundles                = new ArrayList<>();
+        pkgs                = new ArrayList<>();
         progressBar            = new JProgressBar(0, 100);
         progressBar.setPreferredSize(new Dimension(progressBar.getPreferredSize().width, 5));
         progressBar.setForeground(Color.WHITE);
         progressBar.setValue(0);
         progressBar.setUI(new FlatProgressUI());
         progressBar.setVisible(false);
-        extensionComboBox     = new JComboBox<>();
-        extensionComboBox.setEnabled(false);
-        extensionComboBox.setMaximumSize(new Dimension(80, extensionComboBox.getPreferredSize().height));
-        extensionComboBox.addActionListener(e -> {
+        archiveTypeComboBox = new JComboBox<>();
+        archiveTypeComboBox.setEnabled(false);
+        archiveTypeComboBox.setMaximumSize(new Dimension(80, archiveTypeComboBox.getPreferredSize().height));
+        archiveTypeComboBox.addActionListener(e -> {
             if (selectedFeatureVersion == 8) {
-                Optional<Bundle> selectedBundle = bundlesFound8.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
-                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
-            } else if (selectedFeatureVersion == lastLtsRelease.getFeatureVersion()) {
-                Optional<Bundle> selectedBundle = bundlesFoundLastLts.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
-                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
-            } else if (selectedFeatureVersion == currentRelease.getFeatureVersion()) {
-                Optional<Bundle> selectedBundle = bundlesFoundCurrent.stream().filter(bundle -> bundle.getExtension().equals(extensionComboBox.getSelectedItem())).findFirst();
-                if (selectedBundle.isPresent()) { updateSelectedBundle(selectedFeatureVersion, selectedBundle.get());}
+                Optional<Pkg> selectedPkg = pkgsFound8.stream().filter(pkg -> pkg.getArchiveType().equals(archiveTypeComboBox.getSelectedItem())).findFirst();
+                if (selectedPkg.isPresent()) { updateSelectedPkg(selectedFeatureVersion, selectedPkg.get());}
+            } else if (selectedFeatureVersion == lastLts.getAsInt()) {
+                Optional<Pkg> selectedPkg = pkgsFoundLastLts.stream().filter(pkg -> pkg.getArchiveType().equals(archiveTypeComboBox.getSelectedItem())).findFirst();
+                if (selectedPkg.isPresent()) { updateSelectedPkg(selectedFeatureVersion, selectedPkg.get());}
+            } else if (selectedFeatureVersion == current.getAsInt()) {
+                Optional<Pkg> selectedPkg = pkgsFoundCurrent.stream().filter(pkg -> pkg.getArchiveType().equals(archiveTypeComboBox.getSelectedItem())).findFirst();
+                if (selectedPkg.isPresent()) { updateSelectedPkg(selectedFeatureVersion, selectedPkg.get());}
             }
         });
-        bundleMap           = new HashMap<>();
-        bundlesFound8       = new ArrayList<>();
-        bundlesFoundLastLts = new ArrayList<>();
-        bundlesFoundCurrent = new ArrayList<>();
+        pkgMap           = new HashMap<>();
+        pkgsFound8       = new ArrayList<>();
+        pkgsFoundLastLts = new ArrayList<>();
+        pkgsFoundCurrent = new ArrayList<>();
 
         directoryChooser = new JFileChooser();
         directoryChooser.setCurrentDirectory(new File("."));
@@ -128,16 +130,16 @@ public class JdkSelector extends JPanel {
         osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
         osLabel.setForeground(TEXT_COLOR);
 
-        jdk8           = discoClient.getRelease("8");
-        lastLtsRelease = discoClient.getRelease(Release.LAST_LTS_RELEASE);
-        currentRelease = discoClient.getRelease(Release.LATEST_RELEASE);
+        jdk8    = discoClient.getMajorVersion("8");
+        lastLts = discoClient.getLatestLts(false);
+        current = discoClient.getLatestSts(false);
 
         buttonGroup  = new ButtonGroup();
         jdkSelectors = new ConcurrentHashMap<>();
         jdkSelectors.put(8, createRadioButton(jdk8, buttonGroup));
-        jdkSelectors.put(Integer.valueOf(lastLtsRelease.getVersionNumber()), createRadioButton(lastLtsRelease, buttonGroup));
-        if (!currentRelease.getVersionNumber().equals(lastLtsRelease.getVersionNumber())) {
-            jdkSelectors.put(Integer.valueOf(currentRelease.getVersionNumber()), createRadioButton(currentRelease, buttonGroup));
+        jdkSelectors.put(lastLts.getAsInt(), createRadioButton(lastLts, buttonGroup));
+        if (!current.getVersionNumber().equals(lastLts.getVersionNumber())) {
+            jdkSelectors.put(current.getAsInt(), createRadioButton(current, buttonGroup));
         }
 
         distributionLabel = new JLabel("Distribution");
@@ -160,16 +162,17 @@ public class JdkSelector extends JPanel {
         fileNameLabel = new JLabel("-");
         fileNameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
+        fileNameLabel.setFont(new Font(fileNameLabel.getFont().getName(), Font.PLAIN, 11));
 
-        Box extensionBox = Box.createHorizontalBox();
-        extensionBox.add(versionNumberLabel);
-        extensionBox.add(Box.createRigidArea(new Dimension(50, 0)));
-        extensionBox.add(extensionComboBox);
+        Box fileInfoBox = Box.createHorizontalBox();
+        fileInfoBox.add(versionNumberLabel);
+        fileInfoBox.add(Box.createRigidArea(new Dimension(50, 0)));
+        fileInfoBox.add(archiveTypeComboBox);
 
         Box downloadVBox = Box.createVerticalBox();
         downloadVBox.add(downloadLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
-        downloadVBox.add(extensionBox);
+        downloadVBox.add(fileInfoBox);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
         downloadVBox.add(fileNameLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -230,7 +233,7 @@ public class JdkSelector extends JPanel {
             @Override public void mousePressed(final MouseEvent e) {
                 if (progressBar.isVisible()) { return; }
                 Distribution distribution = showDistributionDialog(getParent());
-                updateBundleMap(distribution, 8, Integer.valueOf(lastLtsRelease.getVersionNumber()), Integer.valueOf(currentRelease.getVersionNumber()));
+                updatePkgMap(distribution, 8, Integer.valueOf(lastLts.getAsInt()), Integer.valueOf(current.getAsInt()));
             }
             @Override public void mouseEntered(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
@@ -250,7 +253,7 @@ public class JdkSelector extends JPanel {
                     SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
 
                     final Integer selectedFeatureVersion = jdkSelectors.entrySet().stream().filter(entry -> entry.getValue().isSelected()).mapToInt(entry -> entry.getKey()).findFirst().getAsInt();
-                    downloadBundle(getParent(), selectedFeatureVersion);
+                    downloadPkg(getParent(), selectedFeatureVersion);
                 }
             }
             @Override public void mouseReleased(final MouseEvent e) {
@@ -277,17 +280,17 @@ public class JdkSelector extends JPanel {
         });
     }
 
-    private JRadioButton createRadioButton(final Release release, final ButtonGroup buttonGroup) {
-        JRadioButton radioButton = new JRadioButton("JDK " + release.getVersionNumber());
+    private JRadioButton createRadioButton(final MajorVersion majorVersion, final ButtonGroup buttonGroup) {
+        JRadioButton radioButton = new JRadioButton("JDK " + majorVersion.getAsInt());
         radioButton.setForeground(TEXT_COLOR);
         radioButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-        radioButton.addActionListener(e -> updateDownloadArea(Integer.parseInt(release.getVersionNumber())));
+        radioButton.addActionListener(e -> updateDownloadArea(majorVersion.getAsInt()));
         buttonGroup.add(radioButton);
         return radioButton;
     }
 
     private void updateDownloadArea(final Integer featureVersion) {
-        if (null == featureVersion || !bundleMap.keySet().contains(featureVersion)) { return; }
+        if (null == featureVersion || !pkgMap.keySet().contains(featureVersion)) { return; }
         selectedFeatureVersion = featureVersion;
         downloadArea.setEnabled(true);
         downloadArea.setBackground(DOWNLOAD_AREA_STD);
@@ -295,23 +298,25 @@ public class JdkSelector extends JPanel {
         versionNumberLabel.setForeground(Color.WHITE);
         fileNameLabel.setForeground(Color.WHITE);
 
-        extensionComboBox.removeAllItems();
+        archiveTypeComboBox.removeAllItems();
+        Set<ArchiveType> archiveTypes = new HashSet<>();
         if (featureVersion == 8) {
-            bundlesFound8.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
-        } else if (featureVersion == lastLtsRelease.getFeatureVersion()) {
-            bundlesFoundLastLts.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
-        } else if (featureVersion == currentRelease.getFeatureVersion()) {
-            bundlesFoundCurrent.forEach(bundle -> extensionComboBox.addItem(bundle.getExtension()));
+            pkgsFound8.forEach(pkg -> archiveTypes.add(pkg.getArchiveType()));
+        } else if (featureVersion == lastLts.getAsInt()) {
+            pkgsFoundLastLts.forEach(pkg -> archiveTypes.add(pkg.getArchiveType()));
+        } else if (featureVersion == current.getAsInt()) {
+            pkgsFoundCurrent.forEach(pkg -> archiveTypes.add(pkg.getArchiveType()));
         }
-        extensionComboBox.setEnabled(extensionComboBox.getItemCount() != 0);
+        archiveTypes.forEach(archiveType -> archiveTypeComboBox.addItem(archiveType));
+        archiveTypeComboBox.setEnabled(archiveTypeComboBox.getItemCount() != 0);
 
-        final BundleFileInfo selectedBundleInfo = bundleMap.get(featureVersion);
-        versionNumberLabel.setText(selectedBundleInfo.getVersionNumber().toString());
-        fileNameLabel.setText(selectedBundleInfo.getFileName());
+        final PkgInfo selectedPkgInfo = pkgMap.get(featureVersion);
+        versionNumberLabel.setText(selectedPkgInfo.getJavaVersion().toString());
+        fileNameLabel.setText(selectedPkgInfo.getFileName());
     }
 
-    private void downloadBundle(final Container parent, final Integer featureVersion) {
-        if (!downloadArea.isEnabled() || progressBar.isVisible() || null == bundleMap.get(featureVersion)) { return; }
+    private void downloadPkg(final Container parent, final Integer featureVersion) {
+        if (!downloadArea.isEnabled() || progressBar.isVisible() || null == pkgMap.get(featureVersion)) { return; }
 
         String targetFolder;
         if (directoryChooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
@@ -321,43 +326,41 @@ public class JdkSelector extends JPanel {
         }
 
         if (null != targetFolder) {
-            BundleFileInfo selectedBundleFileInfo = bundleMap.get(featureVersion);
-            long           bundleId               = selectedBundleFileInfo.getId();
-            String         fileName               = selectedBundleFileInfo.getFileName();
-            VersionNumber  versionNumber          = selectedBundleFileInfo.getVersionNumber();
-            discoClient.downloadBundle(bundleId, targetFolder + File.separator + fileName, versionNumber);
+            PkgInfo selectedPkgInfo = pkgMap.get(featureVersion);
+            String  fileName        = selectedPkgInfo.getFileName();
+            discoClient.downloadPkg(selectedPkgInfo, targetFolder + File.separator + fileName);
         }
     }
 
-    private void updateBundleMap(final Distribution distribution, final Integer... featureVersions) {
+    private void updatePkgMap(final Distribution distribution, final Integer... featureVersions) {
         if (null == featureVersions || featureVersions.length == 0) { return; }
-        extensionComboBox.removeAllItems();
-        extensionComboBox.setEnabled(false);
-        bundlesFound8.clear();
-        bundlesFoundLastLts.clear();
-        bundlesFoundCurrent.clear();
-        bundleMap.clear();
+        archiveTypeComboBox.removeAllItems();
+        archiveTypeComboBox.setEnabled(false);
+        pkgsFound8.clear();
+        pkgsFoundLastLts.clear();
+        pkgsFoundCurrent.clear();
+        pkgMap.clear();
 
         for (Integer featureVersion : featureVersions) {
-            bundles = discoClient.getBundles(distribution, new VersionNumber(featureVersion), Latest.OVERALL,
+            pkgs = discoClient.getPkgs(distribution, new VersionNumber(featureVersion), Latest.OVERALL,
                                              discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE,
-                                             Extension.NONE, BundleType.JDK, false, ReleaseStatus.GA, SupportTerm.NONE);
+                                             ArchiveType.NONE, PackageType.JDK, false, ReleaseStatus.GA, TermOfSupport.NONE);
 
-            if (bundles.isEmpty()) {
-                bundleMap.put(featureVersion, null);
+            if (pkgs.isEmpty()) {
+                pkgMap.put(featureVersion, null);
                 jdkSelectors.get(featureVersion).setEnabled(false);
                 jdkSelectors.get(featureVersion).setToolTipText("Not available for " + discoClient.getOperatingSystem().getUiString());
             } else {
                 if (featureVersion == 8) {
-                    bundlesFound8 = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
-                } else if (featureVersion == lastLtsRelease.getFeatureVersion()) {
-                    bundlesFoundLastLts = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
-                } else if (featureVersion == currentRelease.getFeatureVersion()) {
-                    bundlesFoundCurrent = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).collect(Collectors.toList());
+                    pkgsFound8 = pkgs.stream().filter(pkg -> pkg.getMajorVersion().getAsInt() == featureVersion).collect(Collectors.toList());
+                } else if (featureVersion == lastLts.getAsInt()) {
+                    pkgsFoundLastLts = pkgs.stream().filter(pkg -> pkg.getMajorVersion().getAsInt() == featureVersion).collect(Collectors.toList());
+                } else if (featureVersion == current.getAsInt()) {
+                    pkgsFoundCurrent = pkgs.stream().filter(pkg -> pkg.getMajorVersion().getAsInt() == featureVersion).collect(Collectors.toList());
                 }
 
-                Bundle bundleFound = bundles.stream().filter(bundle -> bundle.getVersionNumber().getFeature().getAsInt() == featureVersion).findFirst().get();
-                bundleMap.put(featureVersion, discoClient.getBundleFileInfoSCDL(bundleFound.getId(), bundleFound.getVersionNumber()));
+                Pkg pkgFound = pkgs.stream().filter(pkg -> pkg.getMajorVersion().getAsInt() == featureVersion).findFirst().get();
+                pkgMap.put(featureVersion, discoClient.getPkgInfo(pkgFound.getEphemeralId(), pkgFound.getJavaVersion()));
                 jdkSelectors.get(featureVersion).setEnabled(true);
                 jdkSelectors.get(featureVersion).setToolTipText(null);
             }
@@ -373,11 +376,11 @@ public class JdkSelector extends JPanel {
         fileNameLabel.setText("-");
     }
 
-    private void updateSelectedBundle(final int featureVersion, final Bundle bundle) {
-        bundleMap.put(featureVersion, discoClient.getBundleFileInfo(bundle.getId(), bundle.getVersionNumber()));
-        final BundleFileInfo selectedBundleInfo = bundleMap.get(featureVersion);
-        versionNumberLabel.setText(selectedBundleInfo.getVersionNumber().toString());
-        fileNameLabel.setText(selectedBundleInfo.getFileName());
+    private void updateSelectedPkg(final int featureVersion, final Pkg pkg) {
+        pkgMap.put(featureVersion, discoClient.getPkgInfo(pkg.getEphemeralId(), pkg.getJavaVersion()));
+        final PkgInfo selectedPkgInfo = pkgMap.get(featureVersion);
+        versionNumberLabel.setText(pkg.getJavaVersion().toString());
+        fileNameLabel.setText(selectedPkgInfo.getFileName());
     }
 
     private Distribution showDistributionDialog(final Container parent) {

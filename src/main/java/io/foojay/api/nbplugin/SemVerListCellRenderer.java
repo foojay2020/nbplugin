@@ -16,17 +16,18 @@
 
 package io.foojay.api.nbplugin;
 
-import io.foojay.api.discoclient.bundle.Extension;
+import io.foojay.api.discoclient.pkg.SemVer;
+import io.foojay.api.discoclient.util.OutputFormat;
 
 import javax.swing.*;
 import java.awt.*;
 
 
-public class ExtensionListCellRenderer extends DefaultListCellRenderer {
+public class SemVerListCellRenderer extends DefaultListCellRenderer {
 
     public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-        if (value instanceof Extension) {
-            value = ((Extension) value).getUiString();
+        if (value instanceof SemVer) {
+            value = value.toString();
         }
         super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
         return this;
