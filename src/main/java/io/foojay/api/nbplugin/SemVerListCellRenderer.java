@@ -17,7 +17,6 @@
 package io.foojay.api.nbplugin;
 
 import io.foojay.api.discoclient.pkg.SemVer;
-import io.foojay.api.discoclient.util.OutputFormat;
 
 import javax.swing.*;
 import java.awt.*;

@@ -26,6 +26,7 @@ import io.foojay.api.discoclient.pkg.ArchiveType;
 import io.foojay.api.discoclient.pkg.Latest;
 import io.foojay.api.discoclient.pkg.MajorVersion;
 import io.foojay.api.discoclient.pkg.ReleaseStatus;
+import io.foojay.api.discoclient.pkg.Scope;
 import io.foojay.api.discoclient.pkg.TermOfSupport;
 import io.foojay.api.discoclient.pkg.VersionNumber;
 import io.foojay.api.discoclient.util.PkgInfo;
@@ -103,7 +104,7 @@ public class JdkSelector extends JPanel {
         progressBar.setVisible(false);
         archiveTypeComboBox = new JComboBox<>();
         archiveTypeComboBox.setEnabled(false);
-        archiveTypeComboBox.setMaximumSize(new Dimension(80, archiveTypeComboBox.getPreferredSize().height));
+        archiveTypeComboBox.setMaximumSize(new Dimension(100, archiveTypeComboBox.getPreferredSize().height));
         archiveTypeComboBox.addActionListener(e -> {
             if (selectedFeatureVersion == 8) {
                 Optional<Pkg> selectedPkg = pkgsFound8.stream().filter(pkg -> pkg.getArchiveType().equals(archiveTypeComboBox.getSelectedItem())).findFirst();
@@ -343,8 +344,8 @@ public class JdkSelector extends JPanel {
 
         for (Integer featureVersion : featureVersions) {
             pkgs = discoClient.getPkgs(distribution, new VersionNumber(featureVersion), Latest.OVERALL,
-                                             discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE,
-                                             ArchiveType.NONE, PackageType.JDK, false, ReleaseStatus.GA, TermOfSupport.NONE);
+                                       discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE,
+                                       ArchiveType.NONE, PackageType.JDK, false, ReleaseStatus.GA, TermOfSupport.NONE, Scope.PUBLIC);
 
             if (pkgs.isEmpty()) {
                 pkgMap.put(featureVersion, null);
@@ -384,7 +385,7 @@ public class JdkSelector extends JPanel {
     }
 
     private Distribution showDistributionDialog(final Container parent) {
-        Distribution[] distributions = Distribution.getDistributions().toArray(new Distribution[0]);
+        Distribution[] distributions = Distribution.getDistributions().stream().filter(distribution -> Distribution.GRAALVM_CE8 != distribution).filter(distribution -> Distribution.GRAALVM_CE11 != distribution).collect(Collectors.toList()).toArray(new Distribution[0]);
         Distribution distribution = (Distribution) JOptionPane.showInputDialog(parent, "Choose a dsitribution", "Distributions",
                                                                                JOptionPane.PLAIN_MESSAGE, null, distributions, Distribution.ZULU);
         return null == distribution ? Distribution.ZULU : distribution;

@@ -28,6 +28,7 @@ import io.foojay.api.discoclient.pkg.MajorVersion;
 import io.foojay.api.discoclient.pkg.OperatingSystem;
 import io.foojay.api.discoclient.pkg.PackageType;
 import io.foojay.api.discoclient.pkg.Pkg;
+import io.foojay.api.discoclient.pkg.Scope;
 import io.foojay.api.discoclient.pkg.SemVer;
 import io.foojay.api.discoclient.pkg.TermOfSupport;
 import io.foojay.api.discoclient.util.PkgInfo;
@@ -101,7 +102,7 @@ public class Main {
         // Distributions
         JLabel distributionLabel = new JLabel("Distributions");
         distributionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        Distribution[] distributions = { Distribution.AOJ, Distribution.AOJ_OPENJ9, Distribution.CORRETTO, Distribution.DRAGONWELL, Distribution.LIBERICA, Distribution.ORACLE, Distribution.ORACLE_OPEN_JDK, Distribution.RED_HAT, Distribution.SAP_MACHINE, Distribution.ZULU };
+        Distribution[] distributions = Distribution.getDistributions().stream().filter(distribution -> Distribution.GRAALVM_CE8 != distribution).filter(distribution -> Distribution.GRAALVM_CE11 != distribution).collect(Collectors.toList()).toArray(new Distribution[0]);
         distributionComboBox = new JComboBox<>(distributions);
         distributionComboBox.setRenderer(new DistributionListCellRenderer());
         distributionComboBox.setSelectedItem(Distribution.ZULU);
@@ -235,7 +236,8 @@ public class Main {
         TermOfSupport   termOfSupport   = TermOfSupport.NONE;
 
         List<Pkg>       packages        = new ArrayList<>();
-        packages.addAll(discoClient.getPkgs(distribution, semVer.getVersionNumber(), Latest.OVERALL, operatingSystem, architecture, bitness, archiveType, packageType, javaFxBundled, semVer.getReleaseStatus(), termOfSupport));
+        packages.addAll(discoClient.getPkgs(distribution, semVer.getVersionNumber(), Latest.OVERALL, operatingSystem, architecture, bitness, archiveType, packageType, javaFxBundled, semVer.getReleaseStatus(), termOfSupport,
+                                            Scope.PUBLIC));
         //packages.addAll(discoClient.getPkgs(distribution, semVer.getVersionNumber(), Latest.OVERALL, operatingSystem, architecture, bitness, archiveType, packageType, javaFxBundled, semVer.getReleaseStatus(), termOfSupport));
         List<Pkg>       sortedPackages  = packages.stream()
                                                   .sorted(Comparator.comparing(Pkg::getDistributionName)

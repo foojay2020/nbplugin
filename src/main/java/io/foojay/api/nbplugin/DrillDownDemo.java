@@ -26,7 +26,7 @@ public class DrillDownDemo {
         DrillDownSelector drillDownSelector = new DrillDownSelector();
 
         JFrame frame = new JFrame("Foojay Disco API");
-        frame.setSize(400, 300);
+        frame.setSize(600, 300);
         frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 

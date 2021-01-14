@@ -17,11 +17,19 @@
 package io.foojay.api.nbplugin;
 
 import io.foojay.api.discoclient.DiscoClient;
-import io.foojay.api.discoclient.pkg.Pkg;
-import io.foojay.api.discoclient.pkg.Distribution;
+import io.foojay.api.discoclient.pkg.Architecture;
 import io.foojay.api.discoclient.pkg.ArchiveType;
+import io.foojay.api.discoclient.pkg.Bitness;
+import io.foojay.api.discoclient.pkg.Distribution;
+import io.foojay.api.discoclient.pkg.Latest;
 import io.foojay.api.discoclient.pkg.MajorVersion;
+import io.foojay.api.discoclient.pkg.PackageType;
+import io.foojay.api.discoclient.pkg.Pkg;
+import io.foojay.api.discoclient.pkg.ReleaseStatus;
+import io.foojay.api.discoclient.pkg.Scope;
 import io.foojay.api.discoclient.pkg.SemVer;
+import io.foojay.api.discoclient.pkg.TermOfSupport;
+import io.foojay.api.discoclient.pkg.VersionNumber;
 import io.foojay.api.discoclient.util.PkgInfo;
 
 import javax.swing.*;
@@ -34,51 +42,54 @@ import java.awt.geom.Rectangle2D;
 import java.awt.geom.Rectangle2D.Double;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import static javax.swing.Box.createGlue;
 
 
 public class DrillDownSelector extends JPanel {
-    private static final Color                        DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
-    private static final Color                        DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
-    private static final Color                        DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
-    private static final Color                        DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
-    private static final Color                        PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
-    private static final Color                        BACKGROUND_COLOR       = new Color(45, 45, 45);
-    private static final Color                        TEXT_COLOR             = new Color(164, 164, 164);
-    private              DiscoClient                  discoClient;
-    private              JLabel                       osLabel;
-    private              ButtonGroup                  buttonGroup;
-    private              Map<Integer, JRadioButton>   jdkSelectors;
-    private              RJPanel                      downloadArea;
-    private              JLabel                       downloadLabel;
-    private              JLabel                       versionNumberLabel;
-    private              JLabel                       fileNameLabel;
-    private              JFileChooser                 directoryChooser;
-    private              JProgressBar                 progressBar;
-    private              JComboBox<ArchiveType>       extensionComboBox;
-    private              Map<String, PkgInfo>         pkgMap;
-    private              java.util.List<Pkg>          pkgsFound8;
-    private              java.util.List<Pkg>          pkgsFoundLastLts;
-    private              List<Pkg>                    pkgsFoundCurrent;
-    private              JCheckBox               detailsCheckBox;
-    private              JComboBox<SemVer>       semVerComboBox;
-    private              JComboBox<Distribution> distributionsComboBox;
-    private              JComboBox<ArchiveType>       extensionsComboBox;
+    private static final Color                      DOWNLOAD_AREA_STD      = new Color(28, 107, 177);
+    private static final Color                      DOWNLOAD_AREA_HOVER    = new Color(4, 124, 192);
+    private static final Color                      DOWNLOAD_AREA_DISABLED = new Color(128, 128, 128);
+    private static final Color                      DISABLED_LABEL_COLOR   = new Color(190, 190, 190);
+    private static final Color                      PROGRESS_BAR_TRACK     = new Color(21, 82, 134);
+    private static final Color                      BACKGROUND_COLOR       = new Color(45, 45, 45);
+    private static final Color                      TEXT_COLOR             = new Color(164, 164, 164);
+    private              DiscoClient                discoClient;
+    private              JLabel                     osLabel;
+    private              ButtonGroup                buttonGroup;
+    private              Map<Integer, JRadioButton> jdkSelectors;
+    private              RJPanel                    downloadArea;
+    private              JLabel                     downloadLabel;
+    private              JLabel                     versionNumberLabel;
+    private              JLabel                     fileNameLabel;
+    private              JFileChooser               directoryChooser;
+    private              JProgressBar               progressBar;
+    private              List<Pkg>                  pkgsFound;
+    private              SemVer                     selectedSemVer;
+    private              Distribution               selectedDistribution;
+    private              ArchiveType                selectedArchiveType;
+    private              Pkg                        selectedPkg;
+    private              JCheckBox                  detailsCheckBox;
+    private              JComboBox<SemVer>          semVerComboBox;
+    private              JComboBox<Distribution>    distributionsComboBox;
+    private              JComboBox<ArchiveType>     archiveTypeComboBox;
 
 
     public DrillDownSelector() {
         init();
         registerListeners();
-
-        updatePkgMap(Distribution.ZULU);
     }
 
 
     private void init() {
-        setPreferredSize(new Dimension(400, 300));
+        setPreferredSize(new Dimension(600, 300));
 
         discoClient            = new DiscoClient();
         progressBar            = new JProgressBar(0, 100);
@@ -87,25 +98,18 @@ public class DrillDownSelector extends JPanel {
         progressBar.setValue(0);
         progressBar.setUI(new DrillDownSelector.FlatProgressUI());
         progressBar.setVisible(false);
-        extensionComboBox = new JComboBox<>();
-        extensionComboBox.setEnabled(false);
-        extensionComboBox.setMaximumSize(new Dimension(80, extensionComboBox.getPreferredSize().height));
-        extensionComboBox.addActionListener(e -> {
 
-        });
-        pkgMap           = new HashMap<>();
-        pkgsFound8       = new ArrayList<>();
-        pkgsFoundLastLts = new ArrayList<>();
-        pkgsFoundCurrent = new ArrayList<>();
+        pkgsFound            = new ArrayList<>();
+        selectedSemVer       = null;
+        selectedDistribution = null;
+        selectedArchiveType  = null;
+        selectedPkg          = null;
 
         directoryChooser = new JFileChooser();
         directoryChooser.setCurrentDirectory(new File("."));
         directoryChooser.setDialogTitle("Select destination folder");
         directoryChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         directoryChooser.setAcceptAllFileFilterUsed(false);
-
-        osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
-        osLabel.setForeground(TEXT_COLOR);
 
         buttonGroup  = new ButtonGroup();
         jdkSelectors = new LinkedHashMap<>();
@@ -127,15 +131,11 @@ public class DrillDownSelector extends JPanel {
         fileNameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         fileNameLabel.setForeground(DISABLED_LABEL_COLOR);
 
-        Box extensionBox = Box.createHorizontalBox();
-        extensionBox.add(versionNumberLabel);
-        extensionBox.add(Box.createRigidArea(new Dimension(50, 0)));
-        extensionBox.add(extensionComboBox);
 
         Box downloadVBox = Box.createVerticalBox();
         downloadVBox.add(downloadLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
-        downloadVBox.add(extensionBox);
+        downloadVBox.add(versionNumberLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
         downloadVBox.add(fileNameLabel);
         downloadVBox.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -149,11 +149,6 @@ public class DrillDownSelector extends JPanel {
         downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
         downloadArea.add(downloadVBox);
         downloadArea.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        Box vBox = Box.createVerticalBox();
-        vBox.add(osLabel);
-        vBox.add(Box.createRigidArea(new Dimension(0, 10)));
-
 
         Box leftVBox  = Box.createVerticalBox();
         Box rightVBox = Box.createVerticalBox();
@@ -174,37 +169,59 @@ public class DrillDownSelector extends JPanel {
         selectorBox.add(Box.createRigidArea(new Dimension(30, 0)));
         selectorBox.add(rightVBox);
 
-        selectorBox.add(Box.createRigidArea(new Dimension(30, 0)));
+        selectorBox.add(Box.createRigidArea(new Dimension(50, 0)));
         detailsCheckBox = new JCheckBox("Details");
         detailsCheckBox.setForeground(TEXT_COLOR);
         detailsCheckBox.setVisible(false);
         selectorBox.add(detailsCheckBox);
 
-        selectorBox.add(Box.createRigidArea(new Dimension(30, 0)));
+        Box drillDownBox = Box.createVerticalBox();
+        drillDownBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        drillDownBox.setAlignmentY(Component.TOP_ALIGNMENT);
+        drillDownBox.setMaximumSize(new Dimension(200, 100));
+
         semVerComboBox = new JComboBox<>();
         semVerComboBox.setRenderer(new SemVerListCellRenderer());
         semVerComboBox.setVisible(false);
-        selectorBox.add(semVerComboBox);
+        drillDownBox.add(semVerComboBox);
 
-        selectorBox.add(Box.createRigidArea(new Dimension(30, 0)));
+        drillDownBox.add(Box.createRigidArea(new Dimension(0, 10)));
         distributionsComboBox = new JComboBox<>();
         distributionsComboBox.setRenderer(new DistributionListCellRenderer());
         distributionsComboBox.setVisible(false);
-        selectorBox.add(distributionsComboBox);
+        drillDownBox.add(distributionsComboBox);
 
-        selectorBox.add(Box.createRigidArea(new Dimension(30, 0)));
-        extensionsComboBox = new JComboBox<>();
-        extensionsComboBox.setVisible(false);
-        selectorBox.add(extensionsComboBox);
+        drillDownBox.add(Box.createRigidArea(new Dimension(0, 10)));
+        archiveTypeComboBox = new JComboBox<>();
+        archiveTypeComboBox.setVisible(false);
+        drillDownBox.add(archiveTypeComboBox);
 
+        Box vBox = Box.createVerticalBox();
         vBox.add(selectorBox);
         vBox.add(Box.createRigidArea(new Dimension(0, 10)));
         vBox.add(downloadArea);
-        vBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
         vBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         vBox.setAlignmentY(Component.TOP_ALIGNMENT);
 
-        add(vBox);
+        Box hBox = Box.createHorizontalBox();
+        hBox.add(vBox);
+        hBox.add(Box.createRigidArea(new Dimension(30, 0)));
+        hBox.add(drillDownBox);
+        hBox.setAlignmentX(Component.CENTER_ALIGNMENT);
+        hBox.setAlignmentY(Component.TOP_ALIGNMENT);
+
+        osLabel = new JLabel("Download for " + discoClient.getOperatingSystem().getUiString());
+        osLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        osLabel.setForeground(TEXT_COLOR);
+        osLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        Box mainVBox = Box.createVerticalBox();
+        mainVBox.add(createGlue());
+        mainVBox.add(osLabel);
+        mainVBox.add(Box.createRigidArea(new Dimension(0, 10)));
+        mainVBox.add(hBox);
+
+        add(mainVBox);
 
         setBorder(new EmptyBorder(10, 10, 10 , 10));
 
@@ -238,19 +255,46 @@ public class DrillDownSelector extends JPanel {
             } else {
                 semVerComboBox.setVisible(false);
                 distributionsComboBox.setVisible(false);
-                extensionsComboBox.setVisible(false);
+                archiveTypeComboBox.setVisible(false);
             }
         });
         semVerComboBox.addActionListener(e -> {
-            updateDistros((SemVer) semVerComboBox.getSelectedItem());
+            if (null == semVerComboBox.getSelectedItem()) {
+                selectedSemVer = null;
+                return;
+            }
+            distributionsComboBox.setVisible(false);
+            archiveTypeComboBox.setVisible(false);
+            pkgsFound.clear();
+            selectedPkg    = null;
+            selectedSemVer = (SemVer) semVerComboBox.getSelectedItem();
+            updateDistros();
+        });
+        distributionsComboBox.addActionListener(e -> {
+            if (null == distributionsComboBox.getSelectedItem()) {
+                selectedDistribution = null;
+                return;
+            }
+            archiveTypeComboBox.setVisible(false);
+            pkgsFound.clear();
+            selectedPkg          = null;
+            selectedDistribution = (Distribution) distributionsComboBox.getSelectedItem();
+            updateArchiveTypes();
+        });
+        archiveTypeComboBox.addActionListener(e -> {
+            if (null == archiveTypeComboBox.getSelectedItem()) {
+                selectedArchiveType = null;
+                return;
+            }
+            selectedPkg         = null;
+            selectedArchiveType = (ArchiveType) archiveTypeComboBox.getSelectedItem();
+            updateSelectedPkg();
         });
         downloadArea.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(final MouseEvent e) {
                 if (downloadArea.isEnabled()) {
                     SwingUtilities.invokeLater(() -> downloadArea.setBackground(DOWNLOAD_AREA_HOVER));
-
-                    final Integer selectedFeatureVersion = jdkSelectors.entrySet().stream().filter(entry -> entry.getValue().isSelected()).mapToInt(entry -> entry.getKey()).findFirst().getAsInt();
-                    downloadPkg(getParent(), selectedFeatureVersion);
+                    downloadPkg(getParent());
                 }
             }
             @Override public void mouseReleased(final MouseEvent e) {
@@ -287,39 +331,61 @@ public class DrillDownSelector extends JPanel {
     }
 
     private void updateVersions(final Integer featureVersion) {
-        SwingUtilities.invokeLater(() -> detailsCheckBox.setVisible(true));
-
         List<SemVer> versionNumbers = discoClient.getMajorVersion(featureVersion, false).getVersions();
         SwingUtilities.invokeLater(() -> {
+            detailsCheckBox.setVisible(true);
             semVerComboBox.removeAllItems();
             versionNumbers.forEach(versionNumber -> semVerComboBox.addItem(versionNumber));
+            semVerComboBox.setSelectedIndex(-1);
         });
 
-        downloadArea.setEnabled(true);
-        downloadArea.setBackground(DOWNLOAD_AREA_STD);
-        downloadLabel.setForeground(Color.WHITE);
-        versionNumberLabel.setForeground(Color.WHITE);
-        fileNameLabel.setForeground(Color.WHITE);
+        VersionNumber vn = versionNumbers.stream().max(Comparator.comparing(SemVer::getVersionNumber)).get().getVersionNumber();
+        List<Pkg> pkgs = discoClient.getPkgs(Distribution.ZULU, vn, Latest.PER_VERSION, discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE, ArchiveType.NONE, PackageType.JDK, null,ReleaseStatus.GA, TermOfSupport.NONE, Scope.PUBLIC);
+        if (pkgs.isEmpty()) { return; }
+        selectedPkg = pkgs.get(0);
+        enableDownloadArea();
 
-        extensionComboBox.removeAllItems();
-        extensionComboBox.setEnabled(extensionComboBox.getItemCount() != 0);
-
-        final PkgInfo selectedPkgInfo = pkgMap.get(featureVersion);
-        //versionNumberLabel.setText(selectedPkgInfo.getVersionNumber().toString());
-        //fileNameLabel.setText(selectedPkgInfo.getFileName());
+        archiveTypeComboBox.removeAllItems();
     }
 
-    private void updateDistros(final SemVer semVer) {
-        List<Distribution> distributions = discoClient.getDistributionsThatSupportSemVer(semVer);
+    private void updateDistros() {
+        if (null == selectedSemVer) { return; }
+        List<Distribution> distributions = discoClient.getDistributionsThatSupportSemVer(selectedSemVer);
         SwingUtilities.invokeLater(() -> {
-            distributionsComboBox.setVisible(true);
+            if (null != semVerComboBox.getSelectedItem() && semVerComboBox.isVisible()) {
+                distributionsComboBox.setVisible(true);
+            }
             distributionsComboBox.removeAllItems();
             distributions.forEach(distribution -> distributionsComboBox.addItem(distribution));
         });
     }
 
-    private void downloadPkg(final Container parent, final Integer featureVersion) {
-        if (!downloadArea.isEnabled() || progressBar.isVisible() || null == pkgMap.get(featureVersion)) { return; }
+    private void updateArchiveTypes() {
+        if (null == selectedDistribution || null == selectedSemVer) { return; }
+        pkgsFound = discoClient.getPkgs(selectedDistribution, VersionNumber.fromText(selectedSemVer.toString()), Latest.NONE,
+                                        discoClient.getOperatingSystem(), Architecture.NONE, Bitness.NONE, ArchiveType.NONE, PackageType.JDK,
+                                        Boolean.TRUE, ReleaseStatus.GA, TermOfSupport.NONE, Scope.PUBLIC);
+
+        Set<ArchiveType> archiveTypes = new HashSet<>();
+        pkgsFound.forEach(pkg -> archiveTypes.add(pkg.getArchiveType()));
+        if (distributionsComboBox.isVisible() && null != selectedDistribution) {
+            archiveTypeComboBox.setVisible(true);
+        }
+        archiveTypeComboBox.removeAllItems();
+        archiveTypes.forEach(archiveType -> archiveTypeComboBox.addItem(archiveType));
+        archiveTypeComboBox.setSelectedIndex(-1);
+        if (archiveTypes.isEmpty()) {
+            archiveTypeComboBox.setVisible(false);
+            selectedPkg = null;
+            disableDownloadArea();
+            archiveTypeComboBox.setSelectedItem(null);
+        }
+        archiveTypeComboBox.setVisible(!archiveTypes.isEmpty());
+        enableDownloadArea();
+    }
+
+    private void downloadPkg(final Container parent) {
+        if (!downloadArea.isEnabled() || progressBar.isVisible()) { return; }
 
         String targetFolder;
         if (directoryChooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
@@ -328,23 +394,24 @@ public class DrillDownSelector extends JPanel {
             return;
         }
 
-        if (null != targetFolder) {
-            PkgInfo selectedPkgInfo = pkgMap.get(featureVersion);
-            String  fileName        = selectedPkgInfo.getFileName();
-            discoClient.downloadPkg(selectedPkgInfo, targetFolder + File.separator + fileName);
+        if (null != selectedPkg && null != targetFolder) {
+            PkgInfo pkgInfo  = discoClient.getPkgInfo(selectedPkg.getEphemeralId(), selectedPkg.getJavaVersion());
+            String  fileName = selectedPkg.getFileName();
+            discoClient.downloadPkg(pkgInfo, targetFolder + File.separator + fileName);
         }
     }
 
-    private void updatePkgMap(final Distribution distribution) {
-        extensionComboBox.removeAllItems();
-        extensionComboBox.setEnabled(false);
-        pkgsFound8.clear();
-        pkgsFoundLastLts.clear();
-        pkgsFoundCurrent.clear();
-        pkgMap.clear();
-
-
-        buttonGroup.clearSelection();
+    private void enableDownloadArea() {
+        if (null == selectedPkg) { return; }
+        downloadArea.setEnabled(false);
+        downloadArea.setBackground(DOWNLOAD_AREA_STD);
+        downloadLabel.setForeground(Color.WHITE);
+        versionNumberLabel.setForeground(Color.WHITE);
+        fileNameLabel.setForeground(Color.WHITE);
+        versionNumberLabel.setText(selectedPkg.getJavaVersion().toString());
+        fileNameLabel.setText(selectedPkg.getFileName());
+    }
+    private void disableDownloadArea() {
         downloadArea.setEnabled(false);
         downloadArea.setBackground(DOWNLOAD_AREA_DISABLED);
         downloadLabel.setForeground(DISABLED_LABEL_COLOR);
@@ -354,19 +421,21 @@ public class DrillDownSelector extends JPanel {
         fileNameLabel.setText("-");
     }
 
-    private void updateSelectedPkg(final SemVer semVer, final Pkg pkg) {
-        pkgMap.put(semVer.toString(), discoClient.getPkgInfo(pkg.getId(), pkg.getJavaVersion()));
-        final PkgInfo selectedPkgInfo = pkgMap.get(semVer.toString());
-        versionNumberLabel.setText(selectedPkgInfo.getJavaVersion().toString());
-        fileNameLabel.setText(selectedPkgInfo.getFileName());
+    private void updateSelectedPkg() {
+        if (null == archiveTypeComboBox.getSelectedItem()) { return; }
+        Optional<Pkg> selectedPkgOpt = pkgsFound.stream()
+                                                .filter(pkg -> pkg.getJavaVersion().compareTo(selectedSemVer) == 0)
+                                                .filter(pkg -> pkg.getDistribution().getUiString().equals(selectedDistribution.getUiString()))
+                                                .filter(pkg -> pkg.getArchiveType().getUiString().equals(selectedArchiveType.getUiString()))
+                                                .findFirst();
+        if (selectedPkgOpt.isPresent()) {
+            selectedPkg = selectedPkgOpt.get();
+            enableDownloadArea();
+        } else {
+            disableDownloadArea();
+        }
     }
 
-    private Distribution showDistributionDialog(final Container parent) {
-        Distribution[] distributions = Distribution.getDistributions().toArray(new Distribution[0]);
-        Distribution distribution = (Distribution) JOptionPane.showInputDialog(parent, "Choose a dsitribution", "Distributions",
-                                                                               JOptionPane.PLAIN_MESSAGE, null, distributions, Distribution.ZULU);
-        return null == distribution ? Distribution.ZULU : distribution;
-    }
 
 
     // ******************** Inner classes *************************************
